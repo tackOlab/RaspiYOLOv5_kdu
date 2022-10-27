@@ -200,7 +200,14 @@ int main(int argc, char *argv[]) {
   const int32_t cap_height = std::stoi(argv[4]);
   LibCamera cam;
   int ret = cam.initCamera(cap_width, cap_height, libcamera::formats::RGB888, 4, 0);
+  if (ret) {
+    printf("ERROR: Failed to initialize camera\n");
+    return EXIT_FAILURE;
+  }
   libcamera::ControlList controls_;
+  int64_t frame_time = 1000000 / 30;
+  controls_.set(libcamera::controls::FrameDurationLimits, {frame_time, frame_time});
+  cam.set(controls_);
   LibcameraOutData frameData;
   cam.startCamera();
 #else
@@ -219,7 +226,8 @@ int main(int argc, char *argv[]) {
     }
 #elif defined(ENABLE_LIBCAMERA)
     bool flag = cam.readFrame(&frameData);
-    frame     = cv::Mat(cap_height, cap_width, CV_8UC3, frameData.imageData);
+    if (!flag) continue;
+    frame = cv::Mat(cap_height, cap_width, CV_8UC3, frameData.imageData);
 #endif
     std::vector<cv::Mat> detections;
     // Process the image
@@ -240,11 +248,14 @@ int main(int argc, char *argv[]) {
     if (keycode == 'q') {
       break;
     }
+#if defined(ENABLE_LIBCAMERA)
+    cam.returnFrameBuffer(frameData);
+#endif
   }
-  cv::destroyAllWindows();
 #if defined(ENABLE_LIBCAMERA)
   cam.stopCamera();
   cam.closeCamera();
 #endif
+  cv::destroyAllWindows();
   return EXIT_SUCCESS;
 }
