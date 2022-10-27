@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
     }
 #elif defined(ENABLE_LIBCAMERA)
     bool flag = cam.readFrame(&frameData);
-    frame(cap_height, cap_width, CV_8UC3, frameData.imageData);
+    frame     = cv::Mat(cap_height, cap_width, CV_8UC3, frameData.imageData);
 #endif
     std::vector<cv::Mat> detections;
     // Process the image
