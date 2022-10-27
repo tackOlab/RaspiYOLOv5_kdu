@@ -5,9 +5,9 @@
 
 #if defined(ENABLE_LIBCAMERA)
   #include "LibCamera.h"
+#else
+  #define INPUT_CAMERA
 #endif
-
-#define INPUT_CAMERA
 
 // Constants.
 constexpr float MDEL_WIDTH           = 160.0f;
