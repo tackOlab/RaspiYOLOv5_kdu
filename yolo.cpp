@@ -196,7 +196,10 @@ int main(int argc, char *argv[]) {
   camera.set(cv::CAP_PROP_FRAME_WIDTH, cap_width);
   camera.set(cv::CAP_PROP_FRAME_HEIGHT, cap_height);
 #elif defined(ENABLE_LIBCAMERA)
-  int ret = cam.initCamera(width, height, libcamera::formats::RGB888, 4, 0);
+  const int32_t cap_width  = std::stoi(argv[3]);
+  const int32_t cap_height = std::stoi(argv[4]);
+  LibCamera cam;
+  int ret = cam.initCamera(cap_width, cap_height, libcamera::formats::RGB888, 4, 0);
   libcamera::ControlList controls_;
   LibcameraOutData frameData;
   cam.startCamera();
