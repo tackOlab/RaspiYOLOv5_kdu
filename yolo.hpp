@@ -87,31 +87,22 @@ class yolo_class {
 
   bool is_empty() { return this->is_set; }
 
-  cv::dnn::Net &get_net() { return this->net; }
-
-  double get_inference_time() {
-    // The function getPerfProfile returns the overall time for inference(t)
-    // and the timings for each of the layers(in layersTimes)
-    std::vector<double> layersTimes;
-    double freq = cv::getTickFrequency() / 1000;
-    return this->net.getPerfProfile(layersTimes) / freq;
-  }
-
-  void pre_process(cv::Mat &input_image) {
+  inline void invoke(cv::Mat &input_image) {
+    /****************************************************************************************************
+      Pre-process
+    ****************************************************************************************************/
     // Convert to blob
     cv::Mat blob;
     cv::dnn::blobFromImage(input_image, blob, 1. / 255., cv::Size(model_width, model_height), cv::Scalar(),
                            true, false);
-
     this->net.setInput(blob);
-
     // Forward propagate
     net.forward(this->detections, getOutputsNames(net)[0]);
     // printf("output size = %d\n", outputs[0].size().area());
-  }
 
-  // Initialize vectors to hold respective outputs while unwrapping detections.
-  cv::Mat post_process(cv::Mat &&input_image) {
+    /****************************************************************************************************
+     Post-process
+    ****************************************************************************************************/
     std::vector<int32_t> class_ids;
     std::vector<float> confidences;
     std::vector<cv::Rect> boxes;
@@ -183,10 +174,23 @@ class yolo_class {
       // Draw class labels
       draw_label(input_image, label, left, top);
     }
-    return input_image;
+    // return input_image;
   }
 
-  void draw_label(cv::Mat &input_image, std::string label, int32_t left, int32_t top) {
+  std::vector<cv::Mat> &get_detection() { return this->detections; }
+
+  cv::dnn::Net &get_net() { return this->net; }
+
+  double get_inference_time() {
+    // The function getPerfProfile returns the overall time for inference(t)
+    // and the timings for each of the layers(in layersTimes)
+    std::vector<double> layersTimes;
+    double freq = cv::getTickFrequency() / 1000;
+    return this->net.getPerfProfile(layersTimes) / freq;
+  }
+
+ private:
+  inline void draw_label(cv::Mat &input_image, std::string label, int32_t left, int32_t top) {
     // Display the label at the top of the bounding box
     int32_t baseLine;
     cv::Size label_size = cv::getTextSize(label, FONT_FACE, FONT_SCALE, THICKNESS, &baseLine);
@@ -203,7 +207,7 @@ class yolo_class {
   }
 
   // Get Output Layers Name
-  std::vector<std::string> getOutputsNames(const cv::dnn::Net &net) {
+  inline std::vector<std::string> getOutputsNames(const cv::dnn::Net &net) {
     static std::vector<std::string> names;
     if (names.empty()) {
       std::vector<int32_t> out_layers       = net.getUnconnectedOutLayers();
