@@ -6,11 +6,6 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 
-// Constants
-constexpr float SCORE_THRESHOLD      = 0.5f;
-constexpr float NMS_THRESHOLD        = 0.45f;
-constexpr float CONFIDENCE_THRESHOLD = 0.45f;
-
 // Text parameters
 constexpr float FONT_SCALE  = 0.7f;
 constexpr int32_t FONT_FACE = cv::FONT_HERSHEY_SIMPLEX;
@@ -24,15 +19,32 @@ cv::Scalar RED    = cv::Scalar(0, 0, 255);
 
 class yolo_class {
  private:
-  const float MDEL_WIDTH;
-  const float MODEL_HEIGHT;
-  bool is_set;
+  const float model_width;
+  const float model_height;
+  const float score_threshold;
+  const float nms_threshold;
+  const float confidence_threshold;
+  const int32_t rows;
   std::vector<std::string> class_list;
-  cv::dnn::Net net;
   std::vector<cv::Mat> detections;
+  cv::dnn::Net net;
+  bool is_set;
 
  public:
-  yolo_class(float w, float h) : MDEL_WIDTH(w), MODEL_HEIGHT(h), is_set(false){};
+  yolo_class(float w, float h, float th_sc, float th_nms, float th_conf)
+      : model_width(w),
+        model_height(h),
+        score_threshold(th_sc),
+        nms_threshold(th_nms),
+        confidence_threshold(th_conf),
+        // 25200 for default size 640x640
+        // 6300 for size 320x320
+        // 1575 for size 160x160
+        rows((static_cast<int32_t>(model_width) == 160)   ? 1575
+             : (static_cast<int32_t>(model_width) == 320) ? 6300
+             : (static_cast<int32_t>(model_width) == 640) ? 25200
+                                                          : -1),
+        is_set(false){};
 
   ~yolo_class() {
     if (this->is_set) {
@@ -44,6 +56,10 @@ class yolo_class {
   }
 
   void init(const char *fname_class_list, const char *onnx_file) {
+    if ((this->rows < 0) || (model_width != model_height)) {
+      printf("ERROR: unsupported model size %4.0f x %4.0f\n", model_width, model_height);
+      throw std::exception();
+    }
     // Load class list
     std::ifstream ifs(fname_class_list);
     if (!ifs) {
@@ -84,7 +100,7 @@ class yolo_class {
   void pre_process(cv::Mat &input_image) {
     // Convert to blob
     cv::Mat blob;
-    cv::dnn::blobFromImage(input_image, blob, 1. / 255., cv::Size(MDEL_WIDTH, MODEL_HEIGHT), cv::Scalar(),
+    cv::dnn::blobFromImage(input_image, blob, 1. / 255., cv::Size(model_width, model_height), cv::Scalar(),
                            true, false);
 
     this->net.setInput(blob);
@@ -101,8 +117,8 @@ class yolo_class {
     std::vector<cv::Rect> boxes;
 
     // Resizing factors
-    float x_scale  = input_image.cols / MDEL_WIDTH;
-    float y_factor = input_image.rows / MODEL_HEIGHT;
+    float x_scale  = input_image.cols / model_width;
+    float y_factor = input_image.rows / model_height;
 
     // this number shall be +5 of row number of class list
     const int32_t dimensions = 85;
@@ -112,47 +128,45 @@ class yolo_class {
     float *data_origin = reinterpret_cast<float *>(this->detections[0].data);
     float *p           = data_origin;
 
-    const int32_t rows = 1575;  // 25200 for default size 640, 6300 for 320x320,
-                                // 1575 for 160x160
-    // Iterate through 25200 detections.
-    for (size_t i = 0; i < rows; ++i) {
+    // Iterate through this->row detections
+    for (size_t i = 0; i < this->rows; ++i) {
       float confidence = p[4];
       // Discard bad detections and continue.
-      if (confidence >= CONFIDENCE_THRESHOLD) {
+      if (confidence >= confidence_threshold) {
         float *classes_scores = p + 5;
-        // Create a 1x85 cv::Mat and store class scores of 80 classes.
+        // Create a 1x85 cv::Mat and store class scores of 80 classes
         cv::Mat scores(1, this->class_list.size(), CV_32FC1, classes_scores);
-        // Perform minMaxLoc and acquire the index of best class  score.
+        // Perform minMaxLoc and acquire the index of best class  score
         cv::Point class_id;
         double max_class_score;
         minMaxLoc(scores, 0, &max_class_score, 0, &class_id);
-        // Continue if the class score is above the threshold.
-        if (max_class_score > SCORE_THRESHOLD) {
-          // Store class ID and confidence in the pre-defined respective vectors.
+        // Continue if the class score is above the threshold
+        if (max_class_score > score_threshold) {
+          // Store class ID and confidence in the pre-defined respective vectors
           confidences.push_back(confidence);
           class_ids.push_back(class_id.x);
-          // Center.
+          // Center
           float cx = p[0];
           float cy = p[1];
-          // Box dimension.
+          // Box dimension
           float w = p[2];
           float h = p[3];
-          // Bounding box coordinates.
+          // Bounding box coordinates
           int32_t left   = int32_t((cx - 0.5f * w) * x_scale);
           int32_t top    = int32_t((cy - 0.5f * h) * y_factor);
           int32_t width  = int32_t(w * x_scale);
           int32_t height = int32_t(h * y_factor);
-          // Store good detections in the boxes vector.
+          // Store good detections in the boxes vector
           boxes.push_back(cv::Rect(left, top, width, height));
         }
       }
-      // Jump to the next row.
+      // Jump to the next row
       p = data_origin + i * dimensions;
     }
 
-    // Perform Non-Maximum Suppression and draw predictions.
+    // Perform Non-Maximum Suppression and draw predictions
     std::vector<int32_t> indices;
-    cv::dnn::NMSBoxes(boxes, confidences, SCORE_THRESHOLD, NMS_THRESHOLD, indices);
+    cv::dnn::NMSBoxes(boxes, confidences, score_threshold, nms_threshold, indices);
     for (size_t i = 0; i < indices.size(); i++) {
       int32_t idx    = indices[i];
       cv::Rect box   = boxes[idx];
@@ -160,30 +174,30 @@ class yolo_class {
       int32_t top    = box.y;
       int32_t width  = box.width;
       int32_t height = box.height;
-      // Draw bounding box.
+      // Draw bounding box
       cv::rectangle(input_image, cv::Point(left, top), cv::Point(left + width, top + height), BLUE,
                     3 * THICKNESS);
-      // Get the label for the class name and its confidence.
+      // Get the label for the class name and its confidence
       std::string label = cv::format("%.2f", confidences[idx]);
       label             = this->class_list[class_ids[idx]] + ":" + label;
-      // Draw class labels.
+      // Draw class labels
       draw_label(input_image, label, left, top);
     }
     return input_image;
   }
 
   void draw_label(cv::Mat &input_image, std::string label, int32_t left, int32_t top) {
-    // Display the label at the top of the bounding box.
+    // Display the label at the top of the bounding box
     int32_t baseLine;
     cv::Size label_size = cv::getTextSize(label, FONT_FACE, FONT_SCALE, THICKNESS, &baseLine);
     top                 = cv::max(top, label_size.height);
-    // Top left corner.
+    // Top left corner
     cv::Point tlc = cv::Point(left, top);
-    // Bottom right corner.
+    // Bottom right corner
     cv::Point brc = cv::Point(left + label_size.width, top + label_size.height + baseLine);
-    // Draw white rectangle.
+    // Draw white rectangle
     cv::rectangle(input_image, tlc, brc, BLACK, cv::FILLED);
-    // Put the label on the black rectangle.
+    // Put the label on the black rectangle
     cv::putText(input_image, label, cv::Point(left, top + label_size.height), FONT_FACE, FONT_SCALE, YELLOW,
                 THICKNESS);
   }

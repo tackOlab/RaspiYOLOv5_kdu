@@ -6,8 +6,17 @@
   #define INPUT_CAMERA
 #endif
 
+// Define the size of model
+// 1. width and height shall be equal to each ohter
+// 2. shall be equal to 160 or 320 or 640
+// Corresponding .onnx is required!
 constexpr float MODEL_WIDTH  = 160.0f;
 constexpr float MODEL_HEIGHT = 160.0f;
+
+// Constants
+constexpr float SCORE_THRESHOLD      = 0.5f;
+constexpr float NMS_THRESHOLD        = 0.45f;
+constexpr float CONFIDENCE_THRESHOLD = 0.45f;
 
 int main(int argc, char *argv[]) {
   if (argc < 5) {
@@ -17,7 +26,7 @@ int main(int argc, char *argv[]) {
   const char *fname_class_list = argv[1];
   const char *onnx_file        = argv[2];
 
-  yolo_class yolo(MODEL_WIDTH, MODEL_HEIGHT);
+  yolo_class yolo(MODEL_WIDTH, MODEL_HEIGHT, SCORE_THRESHOLD, NMS_THRESHOLD, CONFIDENCE_THRESHOLD);
   // Create a YOLO instance
   try {
     yolo.init(fname_class_list, onnx_file);
