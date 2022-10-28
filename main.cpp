@@ -1,8 +1,3 @@
-#include <cstdint>
-#include <cstdio>
-#include <fstream>
-#include <opencv2/opencv.hpp>
-
 #include "yolo.hpp"
 
 #if defined(ENABLE_LIBCAMERA)
