@@ -205,8 +205,11 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
   libcamera::ControlList controls_;
+  /**
+   next 2 lines might be problematic with ArduCam 16MP camera (IMX519)
   int64_t frame_time = 1000000 / 30;
   controls_.set(libcamera::controls::FrameDurationLimits, {frame_time, frame_time});
+  **/
   cam.set(controls_);
   LibcameraOutData frameData;
   cam.startCamera();
