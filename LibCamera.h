@@ -1,3 +1,5 @@
+#pragma once
+
 #include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/control_ids.h>
@@ -40,8 +42,7 @@ class LibCamera {
   LibCamera(){};
   ~LibCamera(){};
 
-  int initCamera(int width, int height, libcamera::PixelFormat format,
-                 int buffercount, int rotation);
+  int initCamera(int width, int height, libcamera::PixelFormat format, int buffercount, int rotation);
 
   int startCamera();
   bool readFrame(LibcameraOutData *frameData);
@@ -62,7 +63,7 @@ class LibCamera {
   std::unique_ptr<libcamera::CameraManager> cm;
   std::shared_ptr<libcamera::Camera> camera_;
   bool camera_acquired_ = false;
-  bool camera_started_ = false;
+  bool camera_started_  = false;
   std::unique_ptr<libcamera::CameraConfiguration> config_;
   std::unique_ptr<libcamera::FrameBufferAllocator> allocator_;
   std::vector<std::unique_ptr<libcamera::Request>> requests_;
