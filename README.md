@@ -62,3 +62,11 @@ Example for object detection using the converted `yolo5n.onnx` model with captur
 ```
 ./yolo ../../coco.names ../../yolov5n.onnx 640 480
 ```
+
+## References
+- [Object Detection using YOLOv5 and OpenCV DNN in C++ and Python](https://learnopencv.com/object-detection-using-yolov5-and-opencv-dnn-in-c-and-python/)
+- [About torchvision version](https://www.iodraw.com/en/blog/220747722)
+- [TorchScript, ONNX, CoreML Export(YOLOv5 document)](https://docs.ultralytics.com/tutorials/torchscript-onnx-coreml-export/)
+
+About libcamera warning, below link would be a help
+- https://forums.raspberrypi.com/viewtopic.php?t=327299
