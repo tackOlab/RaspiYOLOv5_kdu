@@ -15,7 +15,7 @@ Clone the official repository.
 git clone https://github.com/ultralytics/yolov5.git
 ```
 
-### Setup to convert models in .pt to .onnx form
+### Setup to convert models in `.pt` to `.onnx` form
 
 1. Install required packages by pip
 
