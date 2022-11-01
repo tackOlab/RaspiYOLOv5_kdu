@@ -63,9 +63,9 @@ int main(int argc, char *argv[]) {
   controls_.set(libcamera::controls::FrameDurationLimits,
                 libcamera::Span<const int64_t, 2>({frame_time, frame_time}));
   // Adjust the brightness of the output images, in the range -1.0 to 1.0
-  controls_.set(libcamera::controls::Brightness, 0.5);
+  controls_.set(libcamera::controls::Brightness, 0.0);
   // Adjust the contrast of the output image, where 1.0 = normal contrast
-  controls_.set(libcamera::controls::Contrast, 1.5);
+  controls_.set(libcamera::controls::Contrast, 1.0);
   // Set the exposure time
   controls_.set(libcamera::controls::ExposureTime, 20000);
   // Set autofocus mode
