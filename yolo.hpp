@@ -87,7 +87,7 @@ class yolo_class {
 
   bool is_empty() { return this->is_set; }
 
-  inline void invoke(cv::Mat &input_image) {
+  inline cv::Mat invoke(cv::Mat &input_image) {
     /****************************************************************************************************
       Pre-process
     ****************************************************************************************************/
@@ -103,13 +103,14 @@ class yolo_class {
     /****************************************************************************************************
      Post-process
     ****************************************************************************************************/
+    cv::Mat output_image = input_image.clone();
     std::vector<int32_t> class_ids;
     std::vector<float> confidences;
     std::vector<cv::Rect> boxes;
 
     // Resizing factors
-    float x_scale  = input_image.cols / model_width;
-    float y_factor = input_image.rows / model_height;
+    float x_scale  = output_image.cols / model_width;
+    float y_factor = output_image.rows / model_height;
 
     // this number shall be +5 of row number of class list
     const int32_t dimensions = 85;
@@ -166,15 +167,15 @@ class yolo_class {
       int32_t width  = box.width;
       int32_t height = box.height;
       // Draw bounding box
-      cv::rectangle(input_image, cv::Point(left, top), cv::Point(left + width, top + height), BLUE,
+      cv::rectangle(output_image, cv::Point(left, top), cv::Point(left + width, top + height), BLUE,
                     3 * THICKNESS);
       // Get the label for the class name and its confidence
       std::string label = cv::format("%.2f", confidences[idx]);
       label             = this->class_list[class_ids[idx]] + ":" + label;
       // Draw class labels
-      draw_label(input_image, label, left, top);
+      draw_label(output_image, label, left, top);
     }
-    // return input_image;
+    return output_image;
   }
 
   std::vector<cv::Mat> &get_detection() { return this->detections; }

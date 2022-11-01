@@ -86,13 +86,13 @@ int main(int argc, char *argv[]) {
 #endif
 
     // Process the image
-    yolo.invoke(frame);
+    cv::Mat output_image = yolo.invoke(frame);
 
     // Put efficiency information
     double t          = yolo.get_inference_time();
     std::string label = cv::format("Model: %s , Inference time: %6.2f ms", onnx_file, t);
-    cv::putText(frame, label, cv::Point(20, 40), FONT_FACE, FONT_SCALE, RED, 2);
-    imshow("Output", frame);
+    cv::putText(output_image, label, cv::Point(20, 40), FONT_FACE, FONT_SCALE, RED, 2);
+    imshow("Output", output_image);
 
     int32_t keycode = cv::waitKey(1);
     if (keycode == 'q') {
