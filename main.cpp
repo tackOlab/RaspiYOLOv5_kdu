@@ -58,6 +58,15 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
   libcamera::ControlList controls_;
+  int64_t frame_time = 1000000 / 30;
+  // Set frame rate
+  controls_.set(controls::FrameDurationLimits, libcamera::Span<const int64_t, 2>({frame_time, frame_time}));
+  // Adjust the brightness of the output images, in the range -1.0 to 1.0
+  controls_.set(controls::Brightness, 0.5);
+  // Adjust the contrast of the output image, where 1.0 = normal contrast
+  controls_.set(controls::Contrast, 1.5);
+  // Set the exposure time
+  controls_.set(controls::ExposureTime, 20000);
   /**
    next 2 lines might be problematic with ArduCam 16MP camera (IMX519)
   int64_t frame_time = 1000000 / 30;
