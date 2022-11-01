@@ -68,6 +68,8 @@ int main(int argc, char *argv[]) {
   controls_.set(libcamera::controls::Contrast, 1.5);
   // Set the exposure time
   controls_.set(libcamera::controls::ExposureTime, 20000);
+  // Set autofocus mode
+  controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeAuto);
   /**
    next 2 lines might be problematic with ArduCam 16MP camera (IMX519)
   int64_t frame_time = 1000000 / 30;
@@ -105,7 +107,14 @@ int main(int argc, char *argv[]) {
     imshow("Output", output_image);
 
     int32_t keycode = cv::waitKey(1);
+    if (keycode == 'f') {
+      controls_.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
+      cam.set(controls_);
+    }
     if (keycode == 'q') {
+#if defined(ENABLE_LIBCAMERA)
+      cam.returnFrameBuffer(frameData);
+#endif
       break;
     }
 #if defined(ENABLE_LIBCAMERA)
