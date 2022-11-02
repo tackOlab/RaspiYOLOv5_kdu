@@ -67,7 +67,9 @@ int main(int argc, char *argv[]) {
   // Adjust the contrast of the output image, where 1.0 = normal contrast
   controls_.set(libcamera::controls::Contrast, 1.0);
   // Set the exposure time
-  controls_.set(libcamera::controls::ExposureTime, 20000);
+  //  controls_.set(libcamera::controls::ExposureTime, 20000);
+  // Set Auto exposure
+  controls_.set(libcamera::controls::AeEnable, libcamera::controls::AE_ENABLE);
   // Set autofocus mode
   controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeAuto);
   /**
@@ -84,7 +86,7 @@ int main(int argc, char *argv[]) {
     printf("ERROR: could not find %s.\n", "bus.jpg");
   }
 #endif
-
+  cv::Mat output_image;
   while (true) {
 #if defined(INPUT_CAMERA)
     if (camera.read(frame) == false) {
@@ -98,7 +100,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     // Process the image
-    cv::Mat output_image = yolo.invoke(frame);
+    output_image = yolo.invoke(frame);
 
     // Put efficiency information
     double t          = yolo.get_inference_time();
