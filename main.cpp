@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 
   bool INPUT_CAMERA = (argc == 5) ? true : false;
 
-  int32_t tmpw = 0, tmph = 0;
+  int32_t tmpw = 640, tmph = 480;
   if (INPUT_CAMERA) {
     tmpw = std::stoi(argv[3]);
     tmph = std::stoi(argv[4]);
