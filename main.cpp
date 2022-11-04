@@ -2,8 +2,6 @@
 
 #if defined(ENABLE_LIBCAMERA)
   #include "LibCamera.h"
-#else
-  #define INPUT_CAMERA
 #endif
 
 // Define the size of model
@@ -19,12 +17,22 @@ constexpr float NMS_THRESHOLD        = 0.45f;
 constexpr float CONFIDENCE_THRESHOLD = 0.45f;
 
 int main(int argc, char *argv[]) {
-  if (argc < 5) {
-    printf("usage: %s class_list modelfile(.onnx) capture-width capture-height\n", argv[0]);
+  if (argc != 3 && argc != 5) {
+    printf("usage: %s class_list modelfile(.onnx) <capture-width capture-height>\n", argv[0]);
     return EXIT_FAILURE;
   }
   const char *fname_class_list = argv[1];
   const char *onnx_file        = argv[2];
+
+  bool INPUT_CAMERA = (argc == 5) ? true : false;
+
+  int32_t tmpw = 0, tmph = 0;
+  if (INPUT_CAMERA) {
+    tmpw = std::stoi(argv[3]);
+    tmph = std::stoi(argv[4]);
+  }
+  const int32_t cap_width  = tmpw;
+  const int32_t cap_height = tmph;
 
   yolo_class yolo(MODEL_WIDTH, MODEL_HEIGHT, SCORE_THRESHOLD, NMS_THRESHOLD, CONFIDENCE_THRESHOLD);
   // Create a YOLO instance
@@ -38,19 +46,7 @@ int main(int argc, char *argv[]) {
 
   // Load or capture an image
   cv::Mat frame;
-#if defined(INPUT_CAMERA)
-  const int32_t cap_width  = std::stoi(argv[3]);
-  const int32_t cap_height = std::stoi(argv[4]);
-  cv::VideoCapture camera(0);
-  if (camera.isOpened() == false) {
-    printf("ERROR: cannot open the camera.\n");
-    return EXIT_FAILURE;
-  }
-  camera.set(cv::CAP_PROP_FRAME_WIDTH, cap_width);
-  camera.set(cv::CAP_PROP_FRAME_HEIGHT, cap_height);
-#elif defined(ENABLE_LIBCAMERA)
-  const int32_t cap_width  = std::stoi(argv[3]);
-  const int32_t cap_height = std::stoi(argv[4]);
+#if defined(ENABLE_LIBCAMERA)
   LibCamera cam;
   int ret = cam.initCamera(cap_width, cap_height, libcamera::formats::RGB888, 4, 0);
   if (ret) {
@@ -81,22 +77,35 @@ int main(int argc, char *argv[]) {
   LibcameraOutData frameData;
   cam.startCamera();
 #else
-  frame = cv::imread("bus.jpg");
-  if (frame.empty()) {
-    printf("ERROR: could not find %s.\n", "bus.jpg");
+  cv::VideoCapture camera(0);
+  if (INPUT_CAMERA) {
+    if (camera.isOpened() == false) {
+      printf("ERROR: cannot open the camera.\n");
+      return EXIT_FAILURE;
+    }
+    camera.set(cv::CAP_PROP_FRAME_WIDTH, cap_width);
+    camera.set(cv::CAP_PROP_FRAME_HEIGHT, cap_height);
+  } else {
+    frame = cv::imread("bus.jpg");
+    if (frame.empty()) {
+      printf("ERROR: could not find %s.\n", "bus.jpg");
+      return EXIT_FAILURE;
+    }
   }
 #endif
   cv::Mat output_image;
   while (true) {
-#if defined(INPUT_CAMERA)
-    if (camera.read(frame) == false) {
-      printf("ERROR: cannot grab a frame\n");
-      break;
-    }
-#elif defined(ENABLE_LIBCAMERA)
+#if defined(ENABLE_LIBCAMERA)
     bool flag = cam.readFrame(&frameData);
     if (!flag) continue;
     frame = cv::Mat(cap_height, cap_width, CV_8UC3, frameData.imageData);
+#else
+    if (INPUT_CAMERA) {
+      if (camera.read(frame) == false) {
+        printf("ERROR: cannot grab a frame\n");
+        break;
+      }
+    }
 #endif
 
     // Process the image
@@ -109,21 +118,21 @@ int main(int argc, char *argv[]) {
     imshow("Output", output_image);
 
     int32_t keycode = cv::waitKey(1);
+
+    if (keycode == 'q') {
+      break;
+    }
+#if defined(ENABLE_LIBCAMERA)
     if (keycode == 'f') {
       controls_.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
       cam.set(controls_);
     }
-    if (keycode == 'q') {
-#if defined(ENABLE_LIBCAMERA)
-      cam.returnFrameBuffer(frameData);
-#endif
-      break;
-    }
-#if defined(ENABLE_LIBCAMERA)
     cam.returnFrameBuffer(frameData);
 #endif
   }
+
 #if defined(ENABLE_LIBCAMERA)
+  cam.returnFrameBuffer(frameData);
   cam.stopCamera();
   cam.closeCamera();
 #endif
