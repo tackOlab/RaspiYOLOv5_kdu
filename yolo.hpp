@@ -25,6 +25,7 @@ class yolo_class {
   const float nms_threshold;
   const float confidence_threshold;
   const int32_t rows;
+  int32_t af_trigger;
   std::vector<std::string> class_list;
   std::vector<cv::Mat> detections;
   cv::dnn::Net net;
@@ -84,6 +85,8 @@ class yolo_class {
 
     this->is_set = true;
   }
+
+  int32_t get_aftrigger() { return this->af_trigger; }
 
   bool is_empty() { return this->is_set; }
 
@@ -158,6 +161,7 @@ class yolo_class {
 
     // Perform Non-Maximum Suppression and draw predictions
     std::vector<int32_t> indices;
+    bool is_person = false;
     cv::dnn::NMSBoxes(boxes, confidences, score_threshold, nms_threshold, indices);
     for (size_t i = 0; i < indices.size(); i++) {
       int32_t idx    = indices[i];
@@ -172,8 +176,16 @@ class yolo_class {
       // Get the label for the class name and its confidence
       std::string label = cv::format("%.2f", confidences[idx]);
       label             = this->class_list[class_ids[idx]] + ":" + label;
+      if (class_ids[idx] == 0) {
+        is_person = true;
+      }
       // Draw class labels
       draw_label(output_image, label, left, top);
+    }
+    if (is_person) {
+      this->af_trigger = 1;
+    } else {
+      this->af_trigger = 0;
     }
     return output_image;
   }

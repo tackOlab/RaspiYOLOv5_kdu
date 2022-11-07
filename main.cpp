@@ -106,10 +106,13 @@ int main(int argc, char *argv[]) {
       }
     }
 #endif
-
+    int tr0 = yolo.get_aftrigger();
+    
     // Process the image
     output_image = yolo.invoke(frame);
-
+    
+    int tr1 = yolo.get_aftrigger();
+    
     // Put efficiency information
     double t          = yolo.get_inference_time();
     std::string label = cv::format("Model: %s , Inference time: %6.2f ms", onnx_file, t);
@@ -122,7 +125,7 @@ int main(int argc, char *argv[]) {
       break;
     }
 #if defined(ENABLE_LIBCAMERA)
-    if (keycode == 'f') {
+    if (tr1 && (tr0 != tr1)) {
       controls_.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
       cam.set(controls_);
     }
