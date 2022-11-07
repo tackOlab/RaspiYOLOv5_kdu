@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
   controls_.set(libcamera::controls::AfMetering, libcamera::controls::AfMeteringAuto);
   controls_.set(libcamera::controls::AfRange, libcamera::controls::AfRangeNormal);
   controls_.set(libcamera::controls::AfSpeed, libcamera::controls::AfSpeedNormal);
-  
+
   cam.set(controls_);
   LibcameraOutData frameData;
   cam.startCamera();
@@ -107,12 +107,12 @@ int main(int argc, char *argv[]) {
     }
 #endif
     int tr0 = yolo.get_aftrigger();
-    
+
     // Process the image
     output_image = yolo.invoke(frame);
-    
+
     int tr1 = yolo.get_aftrigger();
-    
+
     // Put efficiency information
     double t          = yolo.get_inference_time();
     std::string label = cv::format("Model: %s , Inference time: %6.2f ms", onnx_file, t);
