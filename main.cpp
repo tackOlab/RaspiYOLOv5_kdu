@@ -68,11 +68,10 @@ int main(int argc, char *argv[]) {
   controls_.set(libcamera::controls::AeEnable, libcamera::controls::AE_ENABLE);
   // Set autofocus mode
   controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeAuto);
-  /**
-   next 2 lines might be problematic with ArduCam 16MP camera (IMX519)
-  int64_t frame_time = 1000000 / 30;
-  controls_.set(libcamera::controls::FrameDurationLimits, {frame_time, frame_time});
-  **/
+  controls_.set(libcamera::controls::AfMetering, libcamera::controls::AfMeteringAuto);
+  controls_.set(libcamera::controls::AfRange, libcamera::controls::AfRangeNormal);
+  controls_.set(libcamera::controls::AfSpeed, libcamera::controls::AfSpeedNormal);
+  
   cam.set(controls_);
   LibcameraOutData frameData;
   cam.startCamera();

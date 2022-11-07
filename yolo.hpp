@@ -121,7 +121,7 @@ class yolo_class {
     float *p           = data_origin;
 
     // Iterate through this->row detections
-    for (size_t i = 0; i < this->rows; ++i) {
+    for (int32_t i = 0; i < this->rows; ++i) {
       float confidence = p[4];
       // Discard bad detections and continue.
       if (confidence >= confidence_threshold) {
