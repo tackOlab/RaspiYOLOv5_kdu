@@ -36,17 +36,21 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} -O3 -g -DNDEBUG")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+add_subdirectory(ext/OpenHTJ2K)
+include_directories(ext/OpenHTJ2K/src/core/interface)
+
 if (LIBCAMERA_FOUND)
 	include_directories(${CMAKE_SOURCE_DIR} ${LIBCAMERA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
-	add_executable(yolo main.cpp LibCamera.cpp)
+	add_executable(yolo main.cpp LibCamera.cpp ohtj2k_codec.cpp)
 	target_include_directories(yolo PUBLIC ${LIBCAMERA_INCLUDE_DIRS})
-	target_link_libraries(yolo ${OpenCV_LIBS} ${LIBCAMERA_LINK_LIBRARIES})
+	target_link_libraries(yolo open_htj2k ${OpenCV_LIBS} ${LIBCAMERA_LINK_LIBRARIES})
 else()
 	include_directories(${CMAKE_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS})
-	add_executable(yolo main.cpp)
-	target_link_libraries(yolo ${OpenCV_LIBS})
+	add_executable(yolo main.cpp ohtj2k_codec.cpp)
+	target_link_libraries(yolo open_htj2k ${OpenCV_LIBS})
 endif()
 
 if (Threads_FOUND)
  target_link_libraries(yolo PUBLIC ${CMAKE_THREAD_LIBS_INIT})
 endif()
+
