@@ -165,12 +165,14 @@ int main(int argc, char *argv[]) {
 
     const std::vector<int> Quality = {90};
     if (isAFstable && tr1) {
-      std::string fname = cv::format("%s.j2c", tmbuf);
+      std::string fname = cv::format("%s.png", tmbuf);
       cv::cvtColor(frame, output_image, cv::COLOR_BGR2RGB);
       // cv::imwrite(fname, frame, Quality);
-      cb       = htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
+      cb = htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
+      // cv::imwrite(fname, frame);
       FILE *fp = fopen(fname.c_str(), "wb");
       fwrite(cb.codestream, sizeof(uint8_t), cb.size, fp);
+
       fclose(fp);
     }
 
