@@ -1,4 +1,7 @@
 #include "yolo.hpp"
+#include <chrono>
+#include <ctime>
+#include "ohtj2k_codec.h"
 
 #if defined(ENABLE_LIBCAMERA)
   #include "LibCamera.h"
@@ -17,6 +20,14 @@ constexpr float NMS_THRESHOLD        = 0.45f;
 constexpr float CONFIDENCE_THRESHOLD = 0.45f;
 
 int main(int argc, char *argv[]) {
+  htj2k::Encoder *htenc;
+  htenc = new htj2k::OHTJ2KEncoder();
+  htj2k::CodestreamBuffer cb;
+
+  struct timespec ts;
+  struct tm tmstruct;
+
+  std::chrono::_V2::high_resolution_clock::time_point start;
   if (argc != 3 && argc != 5) {
     printf("usage: %s class_list modelfile(.onnx) <capture-width capture-height>\n", argv[0]);
     return EXIT_FAILURE;
@@ -67,7 +78,7 @@ int main(int argc, char *argv[]) {
   // Set Auto exposure
   controls_.set(libcamera::controls::AeEnable, libcamera::controls::AE_ENABLE);
   // Set autofocus mode
-  controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeAuto);
+  controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeContinuous);
   controls_.set(libcamera::controls::AfMetering, libcamera::controls::AfMeteringAuto);
   controls_.set(libcamera::controls::AfRange, libcamera::controls::AfRangeNormal);
   controls_.set(libcamera::controls::AfSpeed, libcamera::controls::AfSpeedNormal);
@@ -93,6 +104,7 @@ int main(int argc, char *argv[]) {
   }
 #endif
   cv::Mat output_image;
+  bool isAFstable = false;
   while (true) {
 #if defined(ENABLE_LIBCAMERA)
     bool flag = cam.readFrame(&frameData);
@@ -128,7 +140,42 @@ int main(int argc, char *argv[]) {
     if (tr1 && (tr0 != tr1)) {
       controls_.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
       cam.set(controls_);
+      start      = std::chrono::high_resolution_clock::now();
+      isAFstable = false;  // autofocus is not stable
     }
+    auto duration = std::chrono::high_resolution_clock::now() - start;
+    auto count    = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+    double time   = static_cast<double>(count) / 1000.0;
+
+    if (time > 2600.0) {
+      isAFstable = true;  // autofocus is stable
+    }
+
+    char tbuf[32];
+    auto now          = std::chrono::high_resolution_clock::now();
+    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+    std::tm now_tm    = *std::localtime(&now_c);
+    strftime(tbuf, 32, "%F-%T", &now_tm);
+
+    std::timespec_get(&ts, TIME_UTC);
+    char tmbuf[64];
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::nanoseconds{ts.tv_nsec});
+    const int msec = ms.count();
+    snprintf(tmbuf, 64, "%s.%03d", tbuf, msec);
+
+    const std::vector<int> Quality = {90};
+    if (isAFstable && tr1) {
+      std::string fname = cv::format("%s.png", tmbuf);
+      cv::cvtColor(frame, output_image, cv::COLOR_BGR2RGB);
+      // cv::imwrite(fname, frame, Quality);
+      cb = htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
+      // cv::imwrite(fname, frame);
+      FILE *fp = fopen(fname.c_str(), "wb");
+      fwrite(cb.codestream, sizeof(uint8_t), cb.size, fp);
+
+      fclose(fp);
+    }
+
     cam.returnFrameBuffer(frameData);
 #endif
   }
