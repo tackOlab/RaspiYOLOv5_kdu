@@ -1,6 +1,10 @@
 # RaspiYOLOv5
 Sample of object detection using YOLOv5 on Raspberry pi with cameras.
 
+```
+git clone https://github.com/tackOlab/RaspiYOLOv5.git --recursive --shallow-submodules
+```
+
 # Prerequisites
 
 ## Basic Python environment
