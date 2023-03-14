@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
 
     const std::vector<int> Quality = {90};
     if (isAFstable && tr1) {
-      std::string fname = cv::format("%s.png", tmbuf);
+      std::string fname = cv::format("%s.j2c", tmbuf);
       cv::cvtColor(frame, output_image, cv::COLOR_BGR2RGB);
       // cv::imwrite(fname, frame, Quality);
       cb = htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
