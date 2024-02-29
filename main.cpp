@@ -7,6 +7,9 @@
   #include "LibCamera.h"
 #endif
 
+#include "simple_udp.hpp"
+simple_udp udp0("133.36.41.118", 4001);
+
 // Define the size of model
 // 1. width and height shall be equal to each ohter
 // 2. shall be equal to 160 or 320 or 640
@@ -155,7 +158,8 @@ int main(int argc, char *argv[]) {
     auto now          = std::chrono::high_resolution_clock::now();
     std::time_t now_c = std::chrono::system_clock::to_time_t(now);
     std::tm now_tm    = *std::localtime(&now_c);
-    strftime(tbuf, 32, "%F-%T", &now_tm);
+    // strftime(tbuf, 32, "%F-%T", &now_tm);
+    strftime(tbuf, 32, "%Y-%m-%d-%H-%M-%S", &now_tm);
 
     std::timespec_get(&ts, TIME_UTC);
     char tmbuf[64];
@@ -167,13 +171,14 @@ int main(int argc, char *argv[]) {
     if (isAFstable && tr1) {
       std::string fname = cv::format("%s.j2c", tmbuf);
       cv::cvtColor(frame, output_image, cv::COLOR_BGR2RGB);
-      // cv::imwrite(fname, frame, Quality);
-      cb = htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
-      // cv::imwrite(fname, frame);
-      FILE *fp = fopen(fname.c_str(), "wb");
-      fwrite(cb.codestream, sizeof(uint8_t), cb.size, fp);
+      cb           = htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
+      size_t csize = cb.size;
+      udp0.udp_send(std::to_string(csize));
+      udp0.udp_send(cb.codestream, csize);
+      // FILE *fp = fopen(fname.c_str(), "wb");
+      // fwrite(cb.codestream, sizeof(uint8_t), cb.size, fp);
 
-      fclose(fp);
+      // fclose(fp);
     }
 
     cam.returnFrameBuffer(frameData);
