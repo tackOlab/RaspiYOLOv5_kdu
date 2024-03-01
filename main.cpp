@@ -3,7 +3,6 @@
 #include <ctime>
 #include "ohtj2k_codec.h"
 
-#define ENABLE_LIBCAMERA
 #if defined(ENABLE_LIBCAMERA)
   #include "LibCamera.h"
 #endif
