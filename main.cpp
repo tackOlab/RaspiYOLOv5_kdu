@@ -1,35 +1,49 @@
-#include "yolo.hpp"
-#include <chrono>
-#include <ctime>
+#include <cassert>
+
 #include "ohtj2k_codec.h"
-
-#if defined(ENABLE_LIBCAMERA)
-  #include "LibCamera.h"
-#endif
-
+#include "yolo.hpp"
+#include "LibCamera.h"
 #include "blkproc.hpp"
 #include "simple_udp.hpp"
-simple_udp udp0("133.36.41.118", 4001);
+#include "create_filename.hpp"
 
-// Define the size of model
-// 1. width and height shall be equal to each ohter
-// 2. shall be equal to 160 or 320 or 640
-// Corresponding .onnx is required!
-constexpr float MODEL_WIDTH  = 160.0f;
-constexpr float MODEL_HEIGHT = 160.0f;
+#include "model_config.hpp"
 
-// Constants
-constexpr float SCORE_THRESHOLD      = 0.5f;
-constexpr float NMS_THRESHOLD        = 0.45f;
-constexpr float CONFIDENCE_THRESHOLD = 0.45f;
+void DCT_driven_focusing(cv::Mat &in, uint8_t &count_bit, bool &isAFstable, float &past_average) {
+  cv::Mat f0 = in.clone();
+  cv::cvtColor(f0, f0, cv::COLOR_BGR2GRAY, 1);
+  f0.convertTo(f0, CV_32F);
+  blkproc(f0, blk::dct2);  // 2D 8x8 DCT
+  blkproc(f0, blk::mask);  // mask lower frequency out
+  cv::resize(f0, f0, cv::Size(), 1.0 / DCTSIZE, 1.0 / DCTSIZE, cv::INTER_NEAREST);
+  cv::imshow("high", f0);
+
+  float *f0p = (float *)f0.data;
+  float a0   = 0.0;
+  for (int i = 0; i < f0.rows * f0.cols; ++i) {
+    a0 += f0p[i];
+  }
+  a0 /= f0.rows * f0.cols;
+  float diff = a0 - past_average;
+  count_bit <<= 1;
+  if (diff < 0.0) {
+    count_bit |= 1;
+  }
+  if (isAFstable == false) {
+    printf("%f, %f\n", a0, diff);
+  }
+  count_bit &= 0x7;
+  if (count_bit == 0x7) {
+    isAFstable = true;
+  }
+  past_average = a0;
+}
 
 int main(int argc, char *argv[]) {
+  simple_udp udp_sock("133.36.41.118", 4001);
+
   htj2k::Encoder *htenc;
   htenc = new htj2k::OHTJ2KEncoder();
-  htj2k::CodestreamBuffer cb;
-
-  struct timespec ts;
-  struct tm tmstruct;
 
   std::chrono::_V2::high_resolution_clock::time_point start;
   if (argc != 3 && argc != 5) {
@@ -61,7 +75,6 @@ int main(int argc, char *argv[]) {
 
   // Load or capture an image
   cv::Mat frame;
-#if defined(ENABLE_LIBCAMERA)
   LibCamera cam;
   int ret = cam.initCamera(cap_width, cap_height, libcamera::formats::RGB888, 4, 0);
   if (ret) {
@@ -70,6 +83,9 @@ int main(int argc, char *argv[]) {
   }
   libcamera::ControlList controls_;
   int64_t frame_time = 1000000 / 30;
+  /**************************************************************************************/
+  // Camera settings
+  /**************************************************************************************/
   // Set frame rate
   controls_.set(libcamera::controls::FrameDurationLimits,
                 libcamera::Span<const int64_t, 2>({frame_time, frame_time}));
@@ -81,58 +97,39 @@ int main(int argc, char *argv[]) {
   //  controls_.set(libcamera::controls::ExposureTime, 20000);
   // Set Auto exposure
   controls_.set(libcamera::controls::AeEnable, libcamera::controls::AE_ENABLE);
-  // // Set autofocus mode
+  // Focus related settings
+  //   Set autofocus mode
   // controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeContinuous);
   // controls_.set(libcamera::controls::AfMetering, libcamera::controls::AfMeteringAuto);
   // controls_.set(libcamera::controls::AfRange, libcamera::controls::AfRangeNormal);
   // controls_.set(libcamera::controls::AfSpeed, libcamera::controls::AfSpeedNormal);
-  // Set manual focus mode
+  //   Set manual focus mode
   controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeManual);
   controls_.set(libcamera::controls::LensPosition, 0);
+  cam.set(controls_);  // Write camera settings
 
-  cam.set(controls_);
   LibcameraOutData frameData;
   cam.startCamera();
-#else
-  cv::VideoCapture camera(0);
-  if (INPUT_CAMERA) {
-    if (camera.isOpened() == false) {
-      printf("ERROR: cannot open the camera.\n");
-      return EXIT_FAILURE;
-    }
-    camera.set(cv::CAP_PROP_FRAME_WIDTH, cap_width);
-    camera.set(cv::CAP_PROP_FRAME_HEIGHT, cap_height);
-  } else {
-    frame = cv::imread("bus.jpg");
-    if (frame.empty()) {
-      printf("ERROR: could not find %s.\n", "bus.jpg");
-      return EXIT_FAILURE;
-    }
-  }
-#endif
+
   cv::Mat output_image;
   bool isAFstable   = false;
   uint8_t count_bit = 0;
-  float LENSPOS = 0.0, past_average = 1.0;
+  float LENSPOS     = 0.0;
   // LENSPOS
   // 0 moves the lens to infinity.
   // 0.5 moves the lens to focus on objects 2m away.
   // 2 moves the lens to focus on objects 50cm away.
   // And larger values will focus the lens closer.
+  float past_average = 0.0;
+  float max_average  = 0.0;
+  float MAX_POS      = 0.0;
 
-  while (true) {
-#if defined(ENABLE_LIBCAMERA)
+  bool focus_fixed = false;
+  while (true) {  // loop begin
     bool flag = cam.readFrame(&frameData);
     if (!flag) continue;
     frame = cv::Mat(cap_height, cap_width, CV_8UC3, frameData.imageData);
-#else
-    if (INPUT_CAMERA) {
-      if (camera.read(frame) == false) {
-        printf("ERROR: cannot grab a frame\n");
-        break;
-      }
-    }
-#endif
+
     int tr0 = yolo.get_aftrigger();
 
     // Process the image
@@ -151,93 +148,68 @@ int main(int argc, char *argv[]) {
     if (keycode == 'q') {
       break;
     }
-#if defined(ENABLE_LIBCAMERA)
+
     // if (tr1 && (tr0 != tr1)) {
     //   controls_.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
     //   cam.set(controls_);
     //   start      = std::chrono::high_resolution_clock::now();
     //   isAFstable = false;  // autofocus is not stable
 
-    if (isAFstable == false) {
-      // MOVE LENS (CHANGE FOCUS)
-      LENSPOS = LENSPOS + 0.1;
-      controls_.set(libcamera::controls::LensPosition, LENSPOS);
-      cam.set(controls_);
-    }
+    // if (keycode == 'f') {
+    //   LENSPOS -= 0.05;
+    // }
+    // if (keycode == 'c') {
+    //   LENSPOS += 0.05;
+    // }
+    // controls_.set(libcamera::controls::LensPosition, LENSPOS);
+    // cam.set(controls_);
+    // printf("LENPOS = %f\n", LENSPOS);
 
-    cv::Mat f0 = frame.clone();
-    cv::cvtColor(f0, f0, cv::COLOR_BGR2GRAY, 1);
-    f0.convertTo(f0, CV_32F);
-    blkproc(f0, blk::dct2);  // 2D 8x8 DCT
-    blkproc(f0, blk::mask);  // mask lower frequency out
-    cv::resize(f0, f0, cv::Size(), 1.0 / DCTSIZE, 1.0 / DCTSIZE, cv::INTER_NEAREST);
+    start = std::chrono::high_resolution_clock::now();
+    if (!focus_fixed) {
+      DCT_driven_focusing(frame, count_bit, isAFstable, past_average);
+      if (max_average < past_average) {
+        max_average = past_average;
+        MAX_POS     = LENSPOS;
+      }
 
-    float *f0p = (float *)f0.data;
-    float a0   = 0.0;
-    for (int i = 0; i < f0.rows * f0.cols; ++i) {
-      a0 += f0p[i];
+      if (isAFstable == false) {
+        // MOVE LENS (CHANGE FOCUS)
+        LENSPOS = LENSPOS + 0.1;
+        controls_.set(libcamera::controls::LensPosition, LENSPOS);
+        cam.set(controls_);
+      } else {
+        controls_.set(libcamera::controls::LensPosition, MAX_POS);
+        cam.set(controls_);
+        focus_fixed = true;
+      }
     }
-    a0 /= f0.rows * f0.cols;
-    float diff = a0 - past_average;
-    count_bit <<= 1;
-    if (diff < 0.0) {
-      count_bit |= 1;
-    }
-    count_bit &= 0x7;
-    if (count_bit == 0x7) {
-      isAFstable = true;
-    }
-    if (isAFstable == false) {
-      printf("%f, %f\n", a0, diff);
-    }
-    past_average = a0;
-
-    cv::imshow("high", f0);
 
     auto duration = std::chrono::high_resolution_clock::now() - start;
     auto count    = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
     double time   = static_cast<double>(count) / 1000.0;
+    printf("Focusing takes %6.2f [ms]\n", time);
 
     // if (time > 2600.0) {
     //   isAFstable = true;  // autofocus is stable
     // }
 
-    char tbuf[32];
-    auto now          = std::chrono::high_resolution_clock::now();
-    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
-    std::tm now_tm    = *std::localtime(&now_c);
-    // strftime(tbuf, 32, "%F-%T", &now_tm);
-    strftime(tbuf, 32, "%Y-%m-%d-%H-%M-%S", &now_tm);
-
-    std::timespec_get(&ts, TIME_UTC);
-    char tmbuf[64];
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::nanoseconds{ts.tv_nsec});
-    const int msec = ms.count();
-    snprintf(tmbuf, 64, "%s.%03d", tbuf, msec);
-
     const std::vector<int> Quality = {90};
     if (isAFstable && tr1) {
-      std::string fname = cv::format("%s.j2c", tmbuf);
+      std::string fname = create_filename_based_on_time();
       cv::cvtColor(frame, output_image, cv::COLOR_BGR2RGB);
-      cb           = htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
-      size_t csize = cb.size;
-      udp0.udp_send(std::to_string(csize));
-      udp0.udp_send(cb.codestream, csize);
-      // FILE *fp = fopen(fname.c_str(), "wb");
-      // fwrite(cb.codestream, sizeof(uint8_t), cb.size, fp);
-
-      // fclose(fp);
+      htj2k::CodestreamBuffer cb =
+          htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
+      udp_sock.udp_send(std::to_string(cb.size));
+      udp_sock.udp_send(cb.codestream, cb.size);
     }
-
     cam.returnFrameBuffer(frameData);
-#endif
-  }
+  }  // loop end
 
-#if defined(ENABLE_LIBCAMERA)
   cam.returnFrameBuffer(frameData);
   cam.stopCamera();
   cam.closeCamera();
-#endif
+
   cv::destroyAllWindows();
   return EXIT_SUCCESS;
 }
