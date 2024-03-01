@@ -7,6 +7,7 @@
   #include "LibCamera.h"
 #endif
 
+#include "blkproc.hpp"
 #include "simple_udp.hpp"
 simple_udp udp0("133.36.41.118", 4001);
 
@@ -80,11 +81,14 @@ int main(int argc, char *argv[]) {
   //  controls_.set(libcamera::controls::ExposureTime, 20000);
   // Set Auto exposure
   controls_.set(libcamera::controls::AeEnable, libcamera::controls::AE_ENABLE);
-  // Set autofocus mode
-  controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeContinuous);
-  controls_.set(libcamera::controls::AfMetering, libcamera::controls::AfMeteringAuto);
-  controls_.set(libcamera::controls::AfRange, libcamera::controls::AfRangeNormal);
-  controls_.set(libcamera::controls::AfSpeed, libcamera::controls::AfSpeedNormal);
+  // // Set autofocus mode
+  // controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeContinuous);
+  // controls_.set(libcamera::controls::AfMetering, libcamera::controls::AfMeteringAuto);
+  // controls_.set(libcamera::controls::AfRange, libcamera::controls::AfRangeNormal);
+  // controls_.set(libcamera::controls::AfSpeed, libcamera::controls::AfSpeedNormal);
+  // Set manual focus mode
+  controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeManual);
+  controls_.set(libcamera::controls::LensPosition, 0);
 
   cam.set(controls_);
   LibcameraOutData frameData;
@@ -107,7 +111,15 @@ int main(int argc, char *argv[]) {
   }
 #endif
   cv::Mat output_image;
-  bool isAFstable = false;
+  bool isAFstable   = false;
+  uint8_t count_bit = 0;
+  float LENSPOS = 0.0, past_average = 1.0;
+  // LENSPOS
+  // 0 moves the lens to infinity.
+  // 0.5 moves the lens to focus on objects 2m away.
+  // 2 moves the lens to focus on objects 50cm away.
+  // And larger values will focus the lens closer.
+
   while (true) {
 #if defined(ENABLE_LIBCAMERA)
     bool flag = cam.readFrame(&frameData);
@@ -140,19 +152,55 @@ int main(int argc, char *argv[]) {
       break;
     }
 #if defined(ENABLE_LIBCAMERA)
-    if (tr1 && (tr0 != tr1)) {
-      controls_.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
+    // if (tr1 && (tr0 != tr1)) {
+    //   controls_.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
+    //   cam.set(controls_);
+    //   start      = std::chrono::high_resolution_clock::now();
+    //   isAFstable = false;  // autofocus is not stable
+
+    if (isAFstable == false) {
+      // MOVE LENS (CHANGE FOCUS)
+      LENSPOS = LENSPOS + 0.1;
+      controls_.set(libcamera::controls::LensPosition, LENSPOS);
       cam.set(controls_);
-      start      = std::chrono::high_resolution_clock::now();
-      isAFstable = false;  // autofocus is not stable
     }
+
+    cv::Mat f0 = frame.clone();
+    cv::cvtColor(f0, f0, cv::COLOR_BGR2GRAY, 1);
+    f0.convertTo(f0, CV_32F);
+    blkproc(f0, blk::dct2);  // 2D 8x8 DCT
+    blkproc(f0, blk::mask);  // mask lower frequency out
+    cv::resize(f0, f0, cv::Size(), 1.0 / DCTSIZE, 1.0 / DCTSIZE, cv::INTER_NEAREST);
+
+    float *f0p = (float *)f0.data;
+    float a0   = 0.0;
+    for (int i = 0; i < f0.rows * f0.cols; ++i) {
+      a0 += f0p[i];
+    }
+    a0 /= f0.rows * f0.cols;
+    float diff = a0 - past_average;
+    count_bit <<= 1;
+    if (diff < 0.0) {
+      count_bit |= 1;
+    }
+    count_bit &= 0x7;
+    if (count_bit == 0x7) {
+      isAFstable = true;
+    }
+    if (isAFstable == false) {
+      printf("%f, %f\n", a0, diff);
+    }
+    past_average = a0;
+
+    cv::imshow("high", f0);
+
     auto duration = std::chrono::high_resolution_clock::now() - start;
     auto count    = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
     double time   = static_cast<double>(count) / 1000.0;
 
-    if (time > 2600.0) {
-      isAFstable = true;  // autofocus is stable
-    }
+    // if (time > 2600.0) {
+    //   isAFstable = true;  // autofocus is stable
+    // }
 
     char tbuf[32];
     auto now          = std::chrono::high_resolution_clock::now();
