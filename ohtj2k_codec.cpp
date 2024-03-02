@@ -8,17 +8,17 @@ constexpr uint32_t NUMTHREADS = 1;
 htj2k::OHTJ2KEncoder::OHTJ2KEncoder() : num_threads(NUMTHREADS){};
 
 htj2k::CodestreamBuffer htj2k::OHTJ2KEncoder::encodeRGB8(const uint8_t* pixels, uint32_t width,
-                                                         uint32_t height) {
-  return this->encode8(pixels, width, height, 3);
+                                                         uint32_t height, uint8_t QF = 90) {
+  return this->encode8(pixels, width, height, 3, QF);
 }
 
 htj2k::CodestreamBuffer htj2k::OHTJ2KEncoder::encodeRGBA8(const uint8_t* pixels, uint32_t width,
-                                                          uint32_t height) {
-  return this->encode8(pixels, width, height, 4);
+                                                          uint32_t height, uint8_t QF = 90) {
+  return this->encode8(pixels, width, height, 4, QF);
 }
 
 htj2k::CodestreamBuffer htj2k::OHTJ2KEncoder::encode8(const uint8_t* pixels, uint32_t width,
-                                                      uint32_t height, uint8_t num_comps) {
+                                                      uint32_t height, uint8_t num_comps, uint8_t QF = 90) {
   open_htj2k::siz_params siz;
   siz.Rsiz   = 0;
   siz.Xsiz   = width;
@@ -67,7 +67,7 @@ htj2k::CodestreamBuffer htj2k::OHTJ2KEncoder::encode8(const uint8_t* pixels, uin
   }
 
   bool isJPH          = false;
-  uint8_t Qfactor     = 90;  // 0xff = no Qfacor;
+  uint8_t Qfactor     = QF;  // 0xff = no Qfacor;
   uint8_t color_space = 0;
 
   auto buf = std::make_unique<std::unique_ptr<int32_t[]>[]>(num_comps);

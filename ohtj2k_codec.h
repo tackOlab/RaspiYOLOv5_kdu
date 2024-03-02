@@ -13,12 +13,14 @@ class OHTJ2KEncoder : public Encoder {
  public:
   OHTJ2KEncoder();
 
-  virtual CodestreamBuffer encodeRGB8(const uint8_t* pixels, const uint32_t width, uint32_t height);
+  virtual CodestreamBuffer encodeRGB8(const uint8_t* pixels, const uint32_t width, uint32_t height,
+                                      uint8_t QF);
 
-  virtual CodestreamBuffer encodeRGBA8(const uint8_t* pixels, uint32_t width, uint32_t height);
+  virtual CodestreamBuffer encodeRGBA8(const uint8_t* pixels, uint32_t width, uint32_t height, uint8_t QF);
 
  private:
-  CodestreamBuffer encode8(const uint8_t* pixels, uint32_t width, uint32_t height, uint8_t num_comps);
+  CodestreamBuffer encode8(const uint8_t* pixels, uint32_t width, uint32_t height, uint8_t num_comps,
+                           uint8_t QF);
   std::vector<uint8_t> outbuf_;
   uint32_t num_threads;
 };
