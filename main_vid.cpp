@@ -67,13 +67,18 @@ int main(int argc, char *argv[]) {
     cv::putText(output_image, label, cv::Point(20, 40), FONT_FACE, FONT_SCALE, RED, 2);
     imshow("Output", output_image);
 
-    const std::vector<int> Quality = {90};
+    const uint8_t Quality = 95;
     // compress a frame into HTJ2K and save it as a file
     if (tr1) {
       std::string fname = create_filename_based_on_time();
       cv::cvtColor(frame, output_image, cv::COLOR_BGR2RGB);
+      auto t_j2k_0 = std::chrono::high_resolution_clock::now();
       htj2k::CodestreamBuffer cb =
-          htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows);
+          htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows, Quality);
+      auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
+      auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
+      printf("HT Encoding takes %f [ms], codestream size = %d bytes\n",
+             static_cast<double>(duration) / 1000.0, cb.size);
       FILE *fp = fopen(fname.c_str(), "wb");
       fwrite(cb.codestream, sizeof(uint8_t), cb.size, fp);
       fclose(fp);
