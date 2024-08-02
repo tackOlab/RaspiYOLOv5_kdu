@@ -7,15 +7,16 @@
 #include <opencv2/opencv.hpp>
 
 // Text parameters
-constexpr float FONT_SCALE  = 0.7f;
+constexpr float FONT_SCALE  = 0.5f;
 constexpr int32_t FONT_FACE = cv::FONT_HERSHEY_SIMPLEX;
-constexpr int32_t THICKNESS = 1;
+constexpr int32_t THICKNESS = 0.5;
 
 // Colors.
 cv::Scalar BLACK  = cv::Scalar(0, 0, 0);
 cv::Scalar BLUE   = cv::Scalar(255, 178, 50);
 cv::Scalar YELLOW = cv::Scalar(0, 255, 255);
 cv::Scalar RED    = cv::Scalar(0, 0, 255);
+cv::Scalar WHITE  = cv::Scalar(255, 255, 255);
 
 class yolo_class {
  private:
