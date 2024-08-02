@@ -1,4 +1,4 @@
-// #include <stddef.h>
+#include <cstddef>
 
 #ifndef HTJ2K_CODEC_H
 #define HTJ2K_CODEC_H
