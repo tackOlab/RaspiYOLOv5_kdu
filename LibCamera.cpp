@@ -38,7 +38,7 @@ int LibCamera::initCamera(int width, int height, PixelFormat format,
   transform = rot * transform;
   if (!!(transform & Transform::Transpose))
     throw std::runtime_error("transforms requiring transpose not supported");
-  config->transform = transform;
+  // config->transform = transform;
 
   switch (config->validate()) {
     case CameraConfiguration::Valid:
