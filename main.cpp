@@ -9,6 +9,9 @@
 
 #include "model_config.hpp"
 
+/*************************************************************************************************/
+// Autofocus based on energy of high frequency in DCT coefficients
+/*************************************************************************************************/
 void DCT_driven_focusing(cv::Mat &in, uint32_t &count_bit, bool &isAFstable, float &past_average) {
   cv::Mat f0 = in.clone();
   cv::cvtColor(f0, f0, cv::COLOR_BGR2GRAY, 1);
@@ -40,6 +43,9 @@ void DCT_driven_focusing(cv::Mat &in, uint32_t &count_bit, bool &isAFstable, flo
   past_average = a0;
 }
 
+/*************************************************************************************************/
+// MAIN
+/*************************************************************************************************/
 int main(int argc, char *argv[]) {
   simple_udp udp_sock("133.36.41.118", 4001);
 
@@ -133,7 +139,7 @@ int main(int argc, char *argv[]) {
 
     int tr0 = yolo.get_aftrigger();
 
-    // Process the image
+    // Object detection by YOLOv5
     output_image = yolo.invoke(frame);
 
     int tr1 = yolo.get_aftrigger();
@@ -147,6 +153,14 @@ int main(int argc, char *argv[]) {
 
     if (keycode == 'q') {
       break;
+    }
+    if (keycode == 'f') {
+      focus_fixed = false;
+      isAFstable = false;
+      LENSPOS     = 0.0;
+      past_average = 0.0;
+      max_average  = 0.0;
+      MAX_POS      = 0.0;
     }
 
     // if (tr1 && (tr0 != tr1)) {
@@ -188,15 +202,13 @@ int main(int argc, char *argv[]) {
     auto duration = std::chrono::high_resolution_clock::now() - start;
     auto count    = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
     double time   = static_cast<double>(count) / 1000.0;
-    // printf("Focusing takes %6.2f [ms]\n", time);
     std::string label_focus = cv::format("Focusing takes: %6.2f ms", time);
     cv::putText(output_image, label_focus, cv::Point(20, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
 
-    // if (time > 2600.0) {
-    //   isAFstable = true;  // autofocus is stable
-    // }
-
-    const uint8_t Quality = 90;
+    /*************************************************************************************************/
+    // HTJ2K encoding
+    /*************************************************************************************************/
+    const uint8_t Quality = 85;
     std::string label_htj2k = cv::format("");
     if (isAFstable && tr1) {
       cv::Mat RGBimg;
@@ -207,15 +219,26 @@ int main(int argc, char *argv[]) {
           htenc->encodeRGB8(RGBimg.data, output_image.cols, RGBimg.rows, Quality);
       auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
       auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
-      // printf("HT Encoding takes %f [ms], codestream size = %d bytes\n",
-      //        static_cast<double>(duration) / 1000.0, cb.size);
-      label_htj2k = cv::format("HT Encoding takes %f [ms], codestream size = %d bytes",
+      label_htj2k = cv::format("HT Encoding takes %6.2f [ms], codestream size = %d bytes",
              static_cast<double>(duration) / 1000.0, cb.size);
       cv::putText(output_image, label_htj2k, cv::Point(20, cap_height - 40), FONT_FACE, FONT_SCALE, WHITE, 2);
       udp_sock.udp_send(std::to_string(cb.size));
       udp_sock.udp_send(cb.codestream, cb.size);
     }
 
+    /*************************************************************************************************/
+    // Get temperature
+    /*************************************************************************************************/
+    FILE *fp;
+    char temp_read[16]="";
+    float pi_temp;
+    fp = fopen("/sys/class/thermal/thermal_zone0/temp","r");
+    fgets(temp_read, 16, fp);
+    fclose(fp);
+    pi_temp = std::stoi(temp_read, nullptr, 10) / 1000.0f;
+    cv::putText(output_image, cv::format("temp = %6.2f 'C", pi_temp), cv::Point(cap_width - 200, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
+
+    // Show images
     imshow("Output", output_image);
 
     cam.returnFrameBuffer(frameData);
