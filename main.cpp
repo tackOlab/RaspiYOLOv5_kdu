@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
           htenc->encodeRGB8(RGBimg.data, output_image.cols, RGBimg.rows, Quality);
       auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
       auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
-      label_htj2k = cv::format("HT Encoding takes %6.2f [ms], codestream size = %d bytes",
+      label_htj2k = cv::format("HT Encoding takes %6.2f [ms], codestream size = %zu bytes",
              static_cast<double>(duration) / 1000.0, cb.size);
       cv::putText(output_image, label_htj2k, cv::Point(20, cap_height - 40), FONT_FACE, FONT_SCALE, WHITE, 2);
       udp_sock.udp_send(std::to_string(cb.size));

@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
       printf("ERROR: cannot grab a frame\n");
       break;
     }
-    int tr0 = yolo.get_aftrigger();
+    __attribute_maybe_unused__ int tr0 = yolo.get_aftrigger();
 
     // Process the image
     output_image = yolo.invoke(frame);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
           htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows, Quality);
       auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
       auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
-      printf("HT Encoding takes %f [ms], codestream size = %d bytes\n",
+      printf("HT Encoding takes %f [ms], codestream size = %zu bytes\n",
              static_cast<double>(duration) / 1000.0, cb.size);
       FILE *fp = fopen(fname.c_str(), "wb");
       fwrite(cb.codestream, sizeof(uint8_t), cb.size, fp);

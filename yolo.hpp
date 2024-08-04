@@ -9,7 +9,7 @@
 // Text parameters
 constexpr float FONT_SCALE  = 0.5f;
 constexpr int32_t FONT_FACE = cv::FONT_HERSHEY_SIMPLEX;
-constexpr int32_t THICKNESS = 0.5;
+constexpr int32_t THICKNESS = 1;
 
 // Colors.
 cv::Scalar BLACK  = cv::Scalar(0, 0, 0);
