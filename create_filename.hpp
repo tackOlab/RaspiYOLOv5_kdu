@@ -15,7 +15,7 @@ std::string create_filename_based_on_time() {
   char tmbuf[64];
   auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::nanoseconds{ts.tv_nsec});
   const int msec = ms.count();
-  snprintf(tmbuf, 64, "%s.%03d.j2c", tbuf, msec);
+  snprintf(tmbuf, 64, "%s.%03d.jph", tbuf, msec);
   std::string fname(tmbuf);
   return fname;
 }

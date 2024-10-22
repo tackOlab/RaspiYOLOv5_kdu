@@ -47,7 +47,6 @@ int main(int argc, char *argv[]) {
   // cv::setNumThreads(0);
   simple_udp udp_sock("133.36.41.118", 4001);
 
-  std::chrono::_V2::high_resolution_clock::time_point start;
   if (argc != 4 && argc != 6) {
     printf("usage: %s class_list modelfile(.onnx) <Qfactor> <capture-width capture-height> \n", argv[0]);
     return EXIT_FAILURE;
@@ -131,14 +130,12 @@ int main(int argc, char *argv[]) {
 
   cv::Mat output_image;
 
-  uint32_t count_bit = 0;
-
   while (true) {  // loop begin
     bool flag = cam.readFrame(&frameData);
     if (!flag) continue;
     frame = cv::Mat(cap_height, cap_width, CV_8UC3, frameData.imageData);
 
-    int tr0 = yolo.get_aftrigger();
+    __attribute__((unused)) int tr0 = yolo.get_aftrigger();
 
     // Object detection by YOLOv5
     output_image = yolo.invoke(frame);

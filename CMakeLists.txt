@@ -23,13 +23,14 @@ endif()
 
 if (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^arm64")
 	if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-		message(STATUS "Add compiler option -mcpu=cortex-a72")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-a72 -mtune=native -march=armv8.1-a")
+		message(STATUS "Add compiler option -mcpu=cortex-a76")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-a76 -mtune=native -march=armv8.1-a")
 	endif()
 endif()
 
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-overloaded-virtual -Wno-array-parameter -Wno-unused-but-set-variable -Wno-unused-variable")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fsanitize=address,undefined")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} -O3 -g -DNDEBUG")
@@ -39,7 +40,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 add_subdirectory(ext/kakadujs)
 include_directories(ext/kakadujs/src)
 
-# For Raspberry Pi with ArduCAM
+# For Raspberry Pi with Pi Camera
 if (LIBCAMERA_FOUND)
 	add_executable(yolo main.cpp LibCamera.cpp)
 	target_include_directories(yolo PRIVATE ${LIBCAMERA_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS})
