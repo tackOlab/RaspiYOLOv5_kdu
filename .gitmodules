@@ -1,3 +1,6 @@
 [submodule "ext/OpenHTJ2K"]
 	path = ext/OpenHTJ2K
 	url = https://github.com/osamu620/OpenHTJ2K.git
+[submodule "ext/kakadujs"]
+	path = ext/kakadujs
+	url = git@github.com:osamu620/kakadujs.git
