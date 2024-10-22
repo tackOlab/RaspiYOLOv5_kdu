@@ -3,17 +3,46 @@
 #include <cassert>
 #include <chrono>
 #include <string>
+#include <cstring>
 #include <ctime>
-#include "ohtj2k_codec.h"
+#include <vector>
+#include <HTJ2KEncoder.hpp>
 #include "yolo.hpp"
 #include "create_filename.hpp"
 
 #include "model_config.hpp"
 
-int main(int argc, char *argv[]) {
-  htj2k::Encoder *htenc;
-  htenc = new htj2k::OHTJ2KEncoder();
+/* ========================================================================= */
+/*                         Set up messaging services                         */
+/* ========================================================================= */
 
+class kdu_stream_message : public kdu_core::kdu_thread_safe_message
+{
+public: // Member classes
+    kdu_stream_message(std::ostream *stream)
+    {
+        this->stream = stream;
+    }
+    void put_text(const char *string)
+    {
+        (*stream) << string;
+    }
+    void flush(bool end_of_message = false)
+    {
+        stream->flush();
+        kdu_thread_safe_message::flush(end_of_message);
+    }
+
+private: // Data
+    std::ostream *stream;
+};
+
+static kdu_stream_message cout_message(&std::cout);
+static kdu_stream_message cerr_message(&std::cerr);
+static kdu_core::kdu_message_formatter pretty_cout(&cout_message);
+static kdu_core::kdu_message_formatter pretty_cerr(&cerr_message);
+
+int main(int argc, char *argv[]) {
   if (argc != 3 && argc != 5) {
     std::printf("usage: %s class_list modelfile(.onnx) <capture-width capture-height>\n", argv[0]);
     return EXIT_FAILURE;
@@ -49,6 +78,14 @@ int main(int argc, char *argv[]) {
   camera.set(cv::CAP_PROP_FRAME_HEIGHT, cap_height);
   cv::Mat output_image;
 
+  HTJ2KEncoder encoder;
+  encoder.setQuality(true, 0.0f);
+  encoder.setDecompositions(5);
+  encoder.setBlockDimensions(Size(64, 64));
+  encoder.setProgressionOrder(0);
+  const FrameInfo info = {static_cast<uint16_t>(cap_width), static_cast<uint16_t>(cap_height), 8, 3, false};
+  std::vector<uint8_t> &rawBytes = encoder.getDecodedBytes(info);
+
   while (true) {
     if (camera.read(frame) == false) {
       printf("ERROR: cannot grab a frame\n");
@@ -73,14 +110,15 @@ int main(int argc, char *argv[]) {
       std::string fname = create_filename_based_on_time();
       cv::cvtColor(frame, output_image, cv::COLOR_BGR2RGB);
       auto t_j2k_0 = std::chrono::high_resolution_clock::now();
-      htj2k::CodestreamBuffer cb =
-          htenc->encodeRGB8(output_image.data, output_image.cols, output_image.rows, Quality);
+      std::memcpy(rawBytes.data(), output_image.data, output_image.cols * output_image.rows * 3);
+      encoder.encode();
       auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
       auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
       printf("HT Encoding takes %f [ms], codestream size = %zu bytes\n",
-             static_cast<double>(duration) / 1000.0, cb.size);
+             static_cast<double>(duration) / 1000.0, rawBytes.size());
       FILE *fp = fopen(fname.c_str(), "wb");
-      fwrite(cb.codestream, sizeof(uint8_t), cb.size, fp);
+      std::vector cb = encoder.getEncodedBytes();
+      fwrite(cb.data(), sizeof(uint8_t), cb.size(), fp);
       fclose(fp);
     }
 

@@ -36,14 +36,14 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} -O3 -g -DNDEBUG")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-add_subdirectory(ext/OpenHTJ2K)
-include_directories(ext/OpenHTJ2K/src/core/interface)
+add_subdirectory(ext/kakadujs)
+include_directories(ext/kakadujs/src)
 
 # For Raspberry Pi with ArduCAM
 if (LIBCAMERA_FOUND)
-	add_executable(yolo main.cpp LibCamera.cpp ohtj2k_codec.cpp)
+	add_executable(yolo main.cpp LibCamera.cpp)
 	target_include_directories(yolo PRIVATE ${LIBCAMERA_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS})
-	target_link_libraries(yolo open_htj2k ${OpenCV_LIBS} ${LIBCAMERA_LINK_LIBRARIES})
+	target_link_libraries(yolo kakadujs ${OpenCV_LIBS} ${LIBCAMERA_LINK_LIBRARIES})
 	if (Threads_FOUND)
 		target_link_libraries(yolo PUBLIC ${CMAKE_THREAD_LIBS_INIT})
 	endif()
@@ -55,9 +55,9 @@ target_include_directories(yolo_still PRIVATE ${CMAKE_SOURCE_DIR} ${OpenCV_INCLU
 target_link_libraries(yolo_still ${OpenCV_LIBS})
 
 # For general vides inputs
-add_executable(yolo_vid main_vid.cpp ohtj2k_codec.cpp)
+add_executable(yolo_vid main_vid.cpp)
 target_include_directories(yolo_vid PRIVATE ${CMAKE_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(yolo_vid open_htj2k ${OpenCV_LIBS})
+target_link_libraries(yolo_vid kakadujs ${OpenCV_LIBS})
 
 
 

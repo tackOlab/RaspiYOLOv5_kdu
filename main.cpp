@@ -1,6 +1,7 @@
 #include <cassert>
 
-#include "ohtj2k_codec.h"
+#include <HTJ2KEncoder.hpp>
+#include <cstring>
 #include "yolo.hpp"
 #include "LibCamera.h"
 #include "blkproc.hpp"
@@ -9,66 +10,76 @@
 
 #include "model_config.hpp"
 
-/*************************************************************************************************/
-// Autofocus based on energy of high frequency in DCT coefficients
-/*************************************************************************************************/
-void DCT_driven_focusing(cv::Mat &in, uint32_t &count_bit, bool &isAFstable, float &past_average) {
-  cv::Mat f0 = in.clone();
-  cv::cvtColor(f0, f0, cv::COLOR_BGR2GRAY, 1);
-  f0.convertTo(f0, CV_32F);
-  f0 -= 128;
-  blkproc(f0, blk::dct2);  // 2D 8x8 DCT
-  blkproc(f0, blk::mask);  // mask lower frequency out
-  cv::resize(f0, f0, cv::Size(), 1.0 / DCTSIZE, 1.0 / DCTSIZE, cv::INTER_NEAREST);
-  cv::imshow("high", f0);
+/* ========================================================================= */
+/*                         Set up messaging services                         */
+/* ========================================================================= */
 
-  float *f0p = (float *)f0.data;
-  float a0   = 0.0;
-  for (int i = 1; i < f0.rows * f0.cols; ++i) {
-    a0 += f0p[i];
-  }
-  a0 /= f0.rows * f0.cols;
-  float diff = a0 - past_average;
-  count_bit <<= 1;
-  if (diff < 0.0) {
-    count_bit |= 1;
-  }
-  if (isAFstable == false) {
-    printf("%f, %f\n", a0, diff);
-  }
-  count_bit &= 0x7FFF;
-  if (count_bit == 0x7FFF) {
-    isAFstable = true;
-  }
-  past_average = a0;
-}
+class kdu_stream_message : public kdu_core::kdu_thread_safe_message
+{
+public: // Member classes
+    kdu_stream_message(std::ostream *stream)
+    {
+        this->stream = stream;
+    }
+    void put_text(const char *string)
+    {
+        (*stream) << string;
+    }
+    void flush(bool end_of_message = false)
+    {
+        stream->flush();
+        kdu_thread_safe_message::flush(end_of_message);
+    }
+
+private: // Data
+    std::ostream *stream;
+};
+
+static kdu_stream_message cout_message(&std::cout);
+static kdu_stream_message cerr_message(&std::cerr);
+static kdu_core::kdu_message_formatter pretty_cout(&cout_message);
+static kdu_core::kdu_message_formatter pretty_cerr(&cerr_message);
 
 /*************************************************************************************************/
 // MAIN
 /*************************************************************************************************/
 int main(int argc, char *argv[]) {
+  // cv::setNumThreads(0);
   simple_udp udp_sock("133.36.41.118", 4001);
 
-  htj2k::Encoder *htenc;
-  htenc = new htj2k::OHTJ2KEncoder();
-
   std::chrono::_V2::high_resolution_clock::time_point start;
-  if (argc != 3 && argc != 5) {
-    printf("usage: %s class_list modelfile(.onnx) <capture-width capture-height>\n", argv[0]);
+  if (argc != 4 && argc != 6) {
+    printf("usage: %s class_list modelfile(.onnx) <Qfactor> <capture-width capture-height> \n", argv[0]);
     return EXIT_FAILURE;
   }
   const char *fname_class_list = argv[1];
   const char *onnx_file        = argv[2];
 
-  bool INPUT_CAMERA = (argc == 5) ? true : false;
+  bool INPUT_CAMERA = (argc == 6) ? true : false;
 
+  const int Quality = std::stoi(argv[3]);
   int32_t tmpw = 640, tmph = 480;
   if (INPUT_CAMERA) {
-    tmpw = std::stoi(argv[3]);
-    tmph = std::stoi(argv[4]);
+    tmpw = std::stoi(argv[4]);
+    tmph = std::stoi(argv[5]);
   }
   const int32_t cap_width  = tmpw;
   const int32_t cap_height = tmph;
+
+  HTJ2KEncoder encoder;
+  enum progression {
+    LRCP, RLCP, RPCL, PCRL, CPRL
+  };
+  encoder.setQuality(false, 0.0f);
+  encoder.setDecompositions(5);
+  encoder.setBlockDimensions(Size(64, 64));
+  encoder.setProgressionOrder(RPCL);
+  encoder.setQfactor(Quality);
+  
+  const FrameInfo info = {static_cast<uint16_t>(cap_width), static_cast<uint16_t>(cap_height), 8, 3, false};
+  std::vector<uint8_t> &rawBytes = encoder.getDecodedBytes(info);
+  rawBytes.resize(0);
+  rawBytes.reserve(cap_width * cap_height * 3);
 
   yolo_class yolo(MODEL_WIDTH, MODEL_HEIGHT, SCORE_THRESHOLD, NMS_THRESHOLD, CONFIDENCE_THRESHOLD);
   // Create a YOLO instance
@@ -106,32 +117,22 @@ int main(int argc, char *argv[]) {
   controls_.set(libcamera::controls::AeEnable, libcamera::controls::AE_ENABLE);
   // Focus related settings
   //   Set autofocus mode
-  // controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeContinuous);
-  // controls_.set(libcamera::controls::AfMetering, libcamera::controls::AfMeteringAuto);
-  // controls_.set(libcamera::controls::AfRange, libcamera::controls::AfRangeNormal);
-  // controls_.set(libcamera::controls::AfSpeed, libcamera::controls::AfSpeedNormal);
+  controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeAuto);
+  controls_.set(libcamera::controls::AfMetering, libcamera::controls::AfMeteringAuto);
+  controls_.set(libcamera::controls::AfRange, libcamera::controls::AfRangeNormal);
+  controls_.set(libcamera::controls::AfSpeed, libcamera::controls::AfSpeedNormal);
   //   Set manual focus mode
-  controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeManual);
-  controls_.set(libcamera::controls::LensPosition, 0.5);
+  // controls_.set(libcamera::controls::AfMode, libcamera::controls::AfModeManual);
+  // controls_.set(libcamera::controls::LensPosition, 0.5);
   cam.set(controls_);  // Write camera settings
 
   LibcameraOutData frameData;
   cam.startCamera();
 
   cv::Mat output_image;
-  bool isAFstable   = false;
-  uint32_t count_bit = 0;
-  float LENSPOS     = 0.0;
-  // LENSPOS
-  // 0 moves the lens to infinity.
-  // 0.5 moves the lens to focus on objects 2m away.
-  // 2 moves the lens to focus on objects 50cm away.
-  // And larger values will focus the lens closer.
-  float past_average = 0.0;
-  float max_average  = 0.0;
-  float MAX_POS      = 0.0;
 
-  bool focus_fixed = false;
+  uint32_t count_bit = 0;
+
   while (true) {  // loop begin
     bool flag = cam.readFrame(&frameData);
     if (!flag) continue;
@@ -154,76 +155,27 @@ int main(int argc, char *argv[]) {
     if (keycode == 'q') {
       break;
     }
-    if (keycode == 'f') {
-      focus_fixed = false;
-      isAFstable = false;
-      LENSPOS     = 0.0;
-      past_average = 0.0;
-      max_average  = 0.0;
-      MAX_POS      = 0.0;
-    }
-
-    // if (tr1 && (tr0 != tr1)) {
-    //   controls_.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
-    //   cam.set(controls_);
-    //   start      = std::chrono::high_resolution_clock::now();
-    //   isAFstable = false;  // autofocus is not stable
-
-    // if (keycode == 'f') {
-    //   LENSPOS -= 0.05;
-    // }
-    // if (keycode == 'c') {
-    //   LENSPOS += 0.05;
-    // }
-    // controls_.set(libcamera::controls::LensPosition, LENSPOS);
-    // cam.set(controls_);
-    // printf("LENPOS = %f\n", LENSPOS);
-
-    start = std::chrono::high_resolution_clock::now();
-    if (!focus_fixed) {
-      DCT_driven_focusing(frame, count_bit, isAFstable, past_average);
-      if (max_average < past_average) {
-        max_average = past_average;
-        MAX_POS     = LENSPOS;
-      }
-
-      if (isAFstable == false) {
-        // MOVE LENS (CHANGE FOCUS)
-        LENSPOS = LENSPOS + 0.1;
-        controls_.set(libcamera::controls::LensPosition, LENSPOS);
-        cam.set(controls_);
-      } else {
-        controls_.set(libcamera::controls::LensPosition, MAX_POS - 0.3);
-        cam.set(controls_);
-        focus_fixed = true;
-      }
-    }
-
-    auto duration = std::chrono::high_resolution_clock::now() - start;
-    auto count    = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-    double time   = static_cast<double>(count) / 1000.0;
-    std::string label_focus = cv::format("Focusing takes: %6.2f ms", time);
-    cv::putText(output_image, label_focus, cv::Point(20, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
 
     /*************************************************************************************************/
     // HTJ2K encoding
     /*************************************************************************************************/
-    const uint8_t Quality = 85;
     std::string label_htj2k = cv::format("");
-    if (isAFstable && tr1) {
+    if (tr1) {
       cv::Mat RGBimg;
       std::string fname = create_filename_based_on_time();
       cv::cvtColor(frame, RGBimg, cv::COLOR_BGR2RGB);
+      // std::memcpy(rawBytes.data(), output_image.data, output_image.cols * output_image.rows * 3);
+      encoder.setSourceImage(output_image.data, output_image.cols * output_image.rows * 3);
       auto t_j2k_0 = std::chrono::high_resolution_clock::now();
-      htj2k::CodestreamBuffer cb =
-          htenc->encodeRGB8(RGBimg.data, output_image.cols, RGBimg.rows, Quality);
+      encoder.encode();
       auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
       auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
+      std::vector cb = encoder.getEncodedBytes();
       label_htj2k = cv::format("HT Encoding takes %6.2f [ms], codestream size = %zu bytes",
-             static_cast<double>(duration) / 1000.0, cb.size);
+             static_cast<double>(duration) / 1000.0, cb.size());
       cv::putText(output_image, label_htj2k, cv::Point(20, cap_height - 40), FONT_FACE, FONT_SCALE, WHITE, 2);
-      udp_sock.udp_send(std::to_string(cb.size));
-      udp_sock.udp_send(cb.codestream, cb.size);
+      udp_sock.udp_send(std::to_string(cb.size()));
+      udp_sock.udp_send(cb.data(), cb.size());
     }
 
     /*************************************************************************************************/
