@@ -4,7 +4,9 @@
 #include <cstdio>
 #include <exception>
 #include <fstream>
-#include <opencv2/opencv.hpp>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/dnn/dnn.hpp>
 
 // Text parameters
 constexpr float FONT_SCALE  = 0.5f;

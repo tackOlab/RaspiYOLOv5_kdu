@@ -3,6 +3,8 @@
 #include <string>
 #include <cassert>
 #include "yolo.hpp"
+#include <opencv2/videoio.hpp>
+#include <opencv2/highgui.hpp>
 
 #include "model_config.hpp"
 

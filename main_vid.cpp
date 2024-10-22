@@ -1,3 +1,4 @@
+#include <iostream>
 #include <cstdint>
 #include <cstdio>
 #include <cassert>
@@ -8,6 +9,8 @@
 #include <vector>
 #include <HTJ2KEncoder.hpp>
 #include "yolo.hpp"
+#include <opencv2/videoio.hpp>
+#include <opencv2/highgui.hpp>
 #include "create_filename.hpp"
 
 #include "model_config.hpp"
