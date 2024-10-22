@@ -122,10 +122,10 @@ int main(int argc, char *argv[]) {
       encoder.encode();
       auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
       auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
-      printf("HT Encoding takes %f [ms], codestream size = %zu bytes\n",
-             static_cast<double>(duration) / 1000.0, rawBytes.size());
-      FILE *fp = fopen(fname.c_str(), "wb");
       std::vector cb = encoder.getEncodedBytes();
+      printf("HT Encoding takes %f [ms], codestream size = %zu bytes\n",
+             static_cast<double>(duration) / 1000.0, cb.size());
+      FILE *fp = fopen(fname.c_str(), "wb");
       fwrite(cb.data(), sizeof(uint8_t), cb.size(), fp);
       fclose(fp);
     }
