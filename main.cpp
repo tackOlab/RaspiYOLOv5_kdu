@@ -173,9 +173,12 @@ int main(int argc, char *argv[]) {
       std::vector cb = encoder.getEncodedBytes();
       label_htj2k = cv::format("HT Encoding takes %6.2f [ms], codestream size = %zu bytes",
              static_cast<double>(duration) / 1000.0, cb.size());
-      cv::putText(output_image, label_htj2k, cv::Point(20, cap_height - 40), FONT_FACE, FONT_SCALE, WHITE, 2);
+      cv::putText(output_image, label_htj2k, cv::Point(20, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
       udp_sock.udp_send(std::to_string(cb.size()));
       udp_sock.udp_send(cb.data(), cb.size());
+      // FILE *fp = fopen(fname.c_str(), "wb");
+      // fwrite(cb.data(), sizeof(uint8_t), cb.size(), fp);
+      // fclose(fp);
     }
 
     /*************************************************************************************************/
