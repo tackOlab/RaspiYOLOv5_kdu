@@ -164,8 +164,7 @@ int main(int argc, char *argv[]) {
       cv::Mat RGBimg;
       std::string fname = create_filename_based_on_time();
       cv::cvtColor(frame, RGBimg, cv::COLOR_BGR2RGB);
-      // std::memcpy(rawBytes.data(), output_image.data, output_image.cols * output_image.rows * 3);
-      encoder.setSourceImage(output_image.data, output_image.cols * output_image.rows * 3);
+      encoder.setSourceImage(RGBimg.data, RGBimg.cols * RGBimg.rows * 3);
       auto t_j2k_0 = std::chrono::high_resolution_clock::now();
       encoder.encode();
       auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;

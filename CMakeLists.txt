@@ -24,7 +24,7 @@ endif()
 if (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^arm64")
 	if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
 		message(STATUS "Add compiler option -mcpu=cortex-a72")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-a72 -mtune=native")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-a72 -mtune=native -march=armv8.1-a")
 	endif()
 endif()
 

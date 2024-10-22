@@ -55,6 +55,8 @@ int main(int argc, char *argv[]) {
   tmph                     = std::stoi(argv[4]);
   const int32_t cap_width  = tmpw;
   const int32_t cap_height = tmph;
+  const int Quality = 85;
+
 
   yolo_class yolo(MODEL_WIDTH, MODEL_HEIGHT, SCORE_THRESHOLD, NMS_THRESHOLD, CONFIDENCE_THRESHOLD);
   // Create a YOLO instance
@@ -79,19 +81,26 @@ int main(int argc, char *argv[]) {
   cv::Mat output_image;
 
   HTJ2KEncoder encoder;
-  encoder.setQuality(true, 0.0f);
+  enum progression {
+    LRCP, RLCP, RPCL, PCRL, CPRL
+  };
+  encoder.setQuality(false, 0.0f);
   encoder.setDecompositions(5);
   encoder.setBlockDimensions(Size(64, 64));
-  encoder.setProgressionOrder(0);
+  encoder.setProgressionOrder(RPCL);
+  encoder.setQfactor(Quality);
+  
   const FrameInfo info = {static_cast<uint16_t>(cap_width), static_cast<uint16_t>(cap_height), 8, 3, false};
   std::vector<uint8_t> &rawBytes = encoder.getDecodedBytes(info);
+  rawBytes.resize(0);
+  rawBytes.reserve(cap_width * cap_height * 3);
 
   while (true) {
     if (camera.read(frame) == false) {
       printf("ERROR: cannot grab a frame\n");
       break;
     }
-    __attribute_maybe_unused__ int tr0 = yolo.get_aftrigger();
+    int tr0 = yolo.get_aftrigger();
 
     // Process the image
     output_image = yolo.invoke(frame);
@@ -104,13 +113,12 @@ int main(int argc, char *argv[]) {
     cv::putText(output_image, label, cv::Point(20, 40), FONT_FACE, FONT_SCALE, RED, 2);
     imshow("Output", output_image);
 
-    const uint8_t Quality = 95;
     // compress a frame into HTJ2K and save it as a file
     if (tr1) {
       std::string fname = create_filename_based_on_time();
       cv::cvtColor(frame, output_image, cv::COLOR_BGR2RGB);
       auto t_j2k_0 = std::chrono::high_resolution_clock::now();
-      std::memcpy(rawBytes.data(), output_image.data, output_image.cols * output_image.rows * 3);
+      encoder.setSourceImage(output_image.data, output_image.cols * output_image.rows * 3);
       encoder.encode();
       auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
       auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
