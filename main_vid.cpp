@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
       fclose(fp);
     }
 
-    int32_t keycode = cv::waitKey(1);
+    int32_t keycode = cv::pollKey();
 
     if (keycode == 'q') {
       break;

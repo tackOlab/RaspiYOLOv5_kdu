@@ -3,9 +3,9 @@
 #include <HTJ2KEncoder.hpp>
 #include <cstring>
 #include "yolo.hpp"
+#include <opencv2/highgui.hpp>
 #include "LibCamera.h"
-#include "blkproc.hpp"
-#include "simple_udp.hpp"
+#include "simple_tcp.hpp"
 #include "create_filename.hpp"
 
 #include "model_config.hpp"
@@ -45,7 +45,6 @@ static kdu_core::kdu_message_formatter pretty_cerr(&cerr_message);
 /*************************************************************************************************/
 int main(int argc, char *argv[]) {
   // cv::setNumThreads(0);
-  simple_udp udp_sock("133.36.41.118", 4001);
 
   if (argc != 4 && argc != 6) {
     printf("usage: %s class_list modelfile(.onnx) <Qfactor> <capture-width capture-height> \n", argv[0]);
@@ -147,7 +146,7 @@ int main(int argc, char *argv[]) {
     std::string label_yolo = cv::format("Model: %s , Inference time: %6.2f ms", onnx_file, t);
     cv::putText(output_image, label_yolo, cv::Point(20, 40), FONT_FACE, FONT_SCALE, WHITE, 2);
     
-    int32_t keycode = cv::waitKey(1);
+    int32_t keycode = cv::pollKey();
 
     if (keycode == 'q') {
       break;
@@ -157,7 +156,7 @@ int main(int argc, char *argv[]) {
     // HTJ2K encoding
     /*************************************************************************************************/
     std::string label_htj2k = cv::format("");
-    if (tr1) {
+    if (tr1 || keycode == 'c') {
       cv::Mat RGBimg;
       std::string fname = create_filename_based_on_time();
       cv::cvtColor(frame, RGBimg, cv::COLOR_BGR2RGB);
@@ -170,11 +169,10 @@ int main(int argc, char *argv[]) {
       label_htj2k = cv::format("HT Encoding takes %6.2f [ms], codestream size = %zu bytes",
              static_cast<double>(duration) / 1000.0, cb.size());
       cv::putText(output_image, label_htj2k, cv::Point(20, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
-      udp_sock.udp_send(std::to_string(cb.size()));
-      udp_sock.udp_send(cb.data(), cb.size());
-      // FILE *fp = fopen(fname.c_str(), "wb");
-      // fwrite(cb.data(), sizeof(uint8_t), cb.size(), fp);
-      // fclose(fp);
+      // send codestream via TCP connection
+      simple_tcp tcp_socket("133.36.41.118", 4001);
+      tcp_socket.create_client();
+      tcp_socket.Tx(cb.data(), cb.size());
     }
 
     /*************************************************************************************************/
@@ -189,7 +187,7 @@ int main(int argc, char *argv[]) {
     pi_temp = std::stoi(temp_read, nullptr, 10) / 1000.0f;
     cv::putText(output_image, cv::format("temp = %6.2f 'C", pi_temp), cv::Point(cap_width - 200, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
 
-    // Show images
+    // Show image
     imshow("Output", output_image);
 
     cam.returnFrameBuffer(frameData);
