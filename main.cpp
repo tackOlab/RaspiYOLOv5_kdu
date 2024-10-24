@@ -14,25 +14,17 @@
 /*                         Set up messaging services                         */
 /* ========================================================================= */
 
-class kdu_stream_message : public kdu_core::kdu_thread_safe_message
-{
-public: // Member classes
-    kdu_stream_message(std::ostream *stream)
-    {
-        this->stream = stream;
-    }
-    void put_text(const char *string)
-    {
-        (*stream) << string;
-    }
-    void flush(bool end_of_message = false)
-    {
-        stream->flush();
-        kdu_thread_safe_message::flush(end_of_message);
-    }
+class kdu_stream_message : public kdu_core::kdu_thread_safe_message {
+ public:  // Member classes
+  kdu_stream_message(std::ostream *stream) { this->stream = stream; }
+  void put_text(const char *string) { (*stream) << string; }
+  void flush(bool end_of_message = false) {
+    stream->flush();
+    kdu_thread_safe_message::flush(end_of_message);
+  }
 
-private: // Data
-    std::ostream *stream;
+ private:  // Data
+  std::ostream *stream;
 };
 
 static kdu_stream_message cout_message(&std::cout);
@@ -65,15 +57,13 @@ int main(int argc, char *argv[]) {
   const int32_t cap_height = tmph;
 
   HTJ2KEncoder encoder;
-  enum progression {
-    LRCP, RLCP, RPCL, PCRL, CPRL
-  };
+  enum progression { LRCP, RLCP, RPCL, PCRL, CPRL };
   encoder.setQuality(false, 0.0f);
   encoder.setDecompositions(5);
   encoder.setBlockDimensions(Size(64, 64));
   encoder.setProgressionOrder(RPCL);
   encoder.setQfactor(Quality);
-  
+
   const FrameInfo info = {static_cast<uint16_t>(cap_width), static_cast<uint16_t>(cap_height), 8, 3, false};
   std::vector<uint8_t> &rawBytes = encoder.getDecodedBytes(info);
   rawBytes.resize(0);
@@ -142,10 +132,10 @@ int main(int argc, char *argv[]) {
     int tr1 = yolo.get_aftrigger();
 
     // Put efficiency information
-    double t          = yolo.get_inference_time();
+    double t               = yolo.get_inference_time();
     std::string label_yolo = cv::format("Model: %s , Inference time: %6.2f ms", onnx_file, t);
     cv::putText(output_image, label_yolo, cv::Point(20, 40), FONT_FACE, FONT_SCALE, WHITE, 2);
-    
+
     int32_t keycode = cv::pollKey();
 
     if (keycode == 'q') {
@@ -163,12 +153,13 @@ int main(int argc, char *argv[]) {
       encoder.setSourceImage(RGBimg.data, RGBimg.cols * RGBimg.rows * 3);
       auto t_j2k_0 = std::chrono::high_resolution_clock::now();
       encoder.encode();
-      auto t_j2k    = std::chrono::high_resolution_clock::now() - t_j2k_0;
-      auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
+      auto t_j2k     = std::chrono::high_resolution_clock::now() - t_j2k_0;
+      auto duration  = std::chrono::duration_cast<std::chrono::microseconds>(t_j2k).count();
       std::vector cb = encoder.getEncodedBytes();
-      label_htj2k = cv::format("HT Encoding takes %6.2f [ms], codestream size = %zu bytes",
-             static_cast<double>(duration) / 1000.0, cb.size());
-      cv::putText(output_image, label_htj2k, cv::Point(20, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
+      label_htj2k    = cv::format("HT Encoding takes %6.2f [ms], codestream size = %zu bytes",
+                                  static_cast<double>(duration) / 1000.0, cb.size());
+      cv::putText(output_image, label_htj2k, cv::Point(20, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE,
+                  2);
       // send codestream via TCP connection
       simple_tcp tcp_socket("133.36.41.118", 4001);
       tcp_socket.create_client();
@@ -179,13 +170,14 @@ int main(int argc, char *argv[]) {
     // Get temperature
     /*************************************************************************************************/
     FILE *fp;
-    char temp_read[16]="";
+    char temp_read[16] = "";
     float pi_temp;
-    fp = fopen("/sys/class/thermal/thermal_zone0/temp","r");
+    fp = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
     fgets(temp_read, 16, fp);
     fclose(fp);
     pi_temp = std::stoi(temp_read, nullptr, 10) / 1000.0f;
-    cv::putText(output_image, cv::format("temp = %6.2f 'C", pi_temp), cv::Point(cap_width - 200, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
+    cv::putText(output_image, cv::format("temp = %6.2f 'C", pi_temp),
+                cv::Point(cap_width - 200, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
 
     // Show image
     imshow("Output", output_image);

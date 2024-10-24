@@ -17,38 +17,45 @@ class simple_tcp {
   uint8_t buf[5000000];
 
  public:
-  simple_tcp(std::string address, int port) {
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    addr.sin_family = AF_INET;
+  simple_tcp(std::string address, int port) : sockfd(-1), client_sockfd(-1) {
+    addr.sin_family      = AF_INET;
     addr.sin_addr.s_addr = inet_addr(address.c_str());
-    addr.sin_port = htons(port);
+    addr.sin_port        = htons(port);
   }
 
-  ~simple_tcp() {
-    close(client_sockfd);
-    close(sockfd);
-  }
+  ~simple_tcp() { this->destroy(); }
 
   void destroy() {
     close(client_sockfd);
     close(sockfd);
   }
 
-  void create_server() {
+  int create_server() {
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+      printf("ERROR: Could not open socket.\n");
+      return sockfd;
+    }
     // set option
     int opt = 1;
-    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,
-               sizeof(opt));
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
     // bind
     bind(sockfd, (struct sockaddr *)&addr, sizeof(addr));
     // listen
     listen(sockfd, SOMAXCONN);
     socklen_t len = sizeof(sockaddr_in);
     client_sockfd = accept(sockfd, (struct sockaddr *)&from_addr, &len);
+    return sockfd;
   }
 
-  void create_client() {
+  int create_client() {
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+      printf("ERROR: Could not open socket.\n");
+      return sockfd;
+    }
     connect(sockfd, (struct sockaddr *)&addr, sizeof(addr));
+    return sockfd;
   }
 
   int Rx(uint8_t *dst) {
