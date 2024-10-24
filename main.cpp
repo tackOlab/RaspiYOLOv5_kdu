@@ -162,8 +162,9 @@ int main(int argc, char *argv[]) {
                   2);
       // send codestream via TCP connection
       simple_tcp tcp_socket("133.36.41.118", 4001);
-      tcp_socket.create_client();
-      tcp_socket.Tx(cb.data(), cb.size());
+      if (!tcp_socket.create_client()) {
+        tcp_socket.Tx(cb.data(), cb.size());
+      }
     }
 
     /*************************************************************************************************/
@@ -180,7 +181,7 @@ int main(int argc, char *argv[]) {
                 cv::Point(cap_width - 200, cap_height - 60), FONT_FACE, FONT_SCALE, WHITE, 2);
 
     // Show image
-    imshow("Output", output_image);
+    cv::imshow("Output", output_image);
 
     cam.returnFrameBuffer(frameData);
   }  // loop end

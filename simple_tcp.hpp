@@ -32,10 +32,6 @@ class simple_tcp {
 
   int create_server() {
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-      printf("ERROR: Could not open socket.\n");
-      return sockfd;
-    }
     // set option
     int opt = 1;
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
@@ -49,13 +45,12 @@ class simple_tcp {
   }
 
   int create_client() {
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-      printf("ERROR: Could not open socket.\n");
-      return sockfd;
+    int ret = 0;
+    sockfd  = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+      ret = -1;
     }
-    connect(sockfd, (struct sockaddr *)&addr, sizeof(addr));
-    return sockfd;
+    return ret;
   }
 
   int Rx(uint8_t *dst) {
